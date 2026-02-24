@@ -63,7 +63,19 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </div>
+
+          <Link 
+              to ="/storage" 
+              className="bg-zinc-900 border border-zinc-800 overflow-hidden shadow-lg rounded-lg hover:border-emerald-800 transition-colors">
+            <div className="px-4 py-5 sm:p-6">
+              <h3 className="text-lg leading-6 font-semibold text-emerald-400">Inventory Management</h3>
+              <div className="mt-2 max-w-xl text-sm text-zinc-400">
+                <p>Keep track of parts and supplies, set reorder alerts, and manage vendors.</p>
+              </div>
+            </div>
+          </Link>
+      
+      </div>
       </main>
     </div>
   );
