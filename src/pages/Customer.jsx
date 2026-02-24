@@ -46,9 +46,9 @@ async function fetchCustomers() {
   return customers;
 }
 
-async function saveCustomer(data) {
-  
-  const docRef = await addDoc(collection(db, "customers"), {
+async function createCustomer(data) {  // data = { name, phone, email, address, notes }
+  const customersCol = collection(db, "customers");
+  const docRef = await addDoc(customersCol, {
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -80,7 +80,7 @@ const icons = {
   spinner: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{animation:"cSpin 0.8s linear infinite"}}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>,
 };
 
-/// ─── Shared Create Button ─────────────────────────────────────────────────────
+// ─── Shared Create Button ─────────────────────────────────────────────────────
 function CreateButton({ onClick }) {
   return (
     <button
@@ -144,7 +144,7 @@ function CreateModal({ onClose, onCreated}) {
   if (Object.keys(errst).length) { setErrors(errst); return; }
   setSaving(true);
   try {
-    const { id } = await saveCustomer({  // ← add await
+    const { id } = await createCustomer({  // ← add await
       name:    form.name.trim(),
       phone:   form.phone.trim() || null,
       email:   form.email.trim() || null,

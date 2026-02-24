@@ -7,7 +7,8 @@ import HomePage from './pages/Home'
 import Login from './pages/Login';
 import JobPage from './pages/Job';
 import ContactPage from './pages/Contact';
-import CreateCustomerPage from './pages/Customer';
+import CustomerPage from './pages/Customer';
+import StoragePage from './pages/Storage';
 
 function App() {
 
@@ -20,7 +21,8 @@ function App() {
         <Route path="/Login" element={<Login />} />
         <Route path="/Contact" element={<ContactPage />} />
         <Route path="/Jobs" element={<JobPage />} />
-        <Route path="/Customer" element={<CreateCustomerPage />} />
+        <Route path="/Customer" element={<CustomerPage />} />
+        <Route path="/Storage" element={<StoragePage />} />
         
       </Routes>
     </BrowserRouter>
