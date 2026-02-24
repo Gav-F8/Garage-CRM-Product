@@ -1,51 +1,142 @@
-import { NavigationBar } from "../components/NavigationBar";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
+import { NavigationBar } from '../components/NavigationBar';
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Loader2, ArrowRight, Lock, Mail } from "lucide-react"
+import { notionClasses } from '@/lib/notion-theme';
 
 export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate('/Home');
+    } catch (err) {
+      console.error(err);
+      setError('Invalid email or password');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className={notionClasses.pageContainer}>
       <NavigationBar />
-      <main className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 mt-10">
-        <div className="max-w-md w-full space-y-8 bg-zinc-900 border border-zinc-800 p-8 rounded-lg shadow-lg">
-          <div>
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-emerald-400">
-              Sign in to your account
-            </h2>
+      
+      <div className={notionClasses.container}>
+        <div className={notionClasses.cardContainer}>
+          
+          {/* Header Section */}
+          <div className="text-center space-y-4">
+            <div className={notionClasses.iconContainer}>
+              <svg 
+                className="w-8 h-8 text-[#37352F]" 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-[#37352F]">
+              Welcome back
+            </h1>
+            <p className="text-[#787774] text-base">
+              Enter your credentials to access the workspace
+            </p>
           </div>
-          <form className="mt-8 space-y-6">
-            <div className="rounded-md shadow-sm -space-y-px">
-              <div>
-                <label htmlFor="email-address" className="sr-only">Email address</label>
-                <input id="email-address" name="email" type="email" required className="appearance-none rounded-none relative block w-full px-3 py-2 bg-zinc-800 border border-zinc-700 placeholder-zinc-500 text-white rounded-t-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm" placeholder="Email address" />
-              </div>
-              <div>
-                <label htmlFor="password" className="sr-only">Password</label>
-                <input id="password" name="password" type="password" required className="appearance-none rounded-none relative block w-full px-3 py-2 bg-zinc-800 border border-zinc-700 placeholder-zinc-500 text-white rounded-b-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm" placeholder="Password" />
-              </div>
-            </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-emerald-500 focus:ring-emerald-500 border-zinc-600 rounded bg-zinc-800" />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-zinc-300">
-                  Remember me
-                </label>
+          {/* Form Section */}
+          <div className={notionClasses.card}>
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email" className={notionClasses.label}>
+                  Email
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-[#9B9A97]" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    placeholder="name@company.com" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className={notionClasses.input}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className={notionClasses.label}>
+                    Password
+                  </Label>
+                  <a href="#" className={notionClasses.subLink}>
+                    Forgot password?
+                  </a>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-[#9B9A97]" />
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className={notionClasses.input}
+                  />
+                </div>
               </div>
 
-              <div className="text-sm">
-                <a href="#" className="font-medium text-emerald-400 hover:text-emerald-300">
-                  Forgot your password?
-                </a>
-              </div>
-            </div>
+              {error && (
+                <div className={notionClasses.errorBox}>
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {error}
+                </div>
+              )}
 
-            <div>
-              <button type="button" className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-zinc-950 bg-emerald-400 hover:bg-emerald-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500">
-                Sign in
-              </button>
-            </div>
-          </form>
+              <Button 
+                type="submit" 
+                className={notionClasses.button}
+                disabled={loading}
+              >
+                {loading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <span className="flex items-center">
+                    Log in <ArrowRight className="ml-2 h-4 w-4" />
+                  </span>
+                )}
+              </Button>
+            </form>
+          </div>
+
+          {/* Footer */}
+          <p className="text-center text-sm text-[#787774]">
+            Don't have an account?{' '}
+            <a href="#" className={notionClasses.link}>
+              Sign up
+            </a>
+          </p>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
