@@ -19,3 +19,34 @@ export const auth = getAuth(app);
 
 // Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
+
+/**
+ * Firestore Data Model Reference
+ * 
+ * Users Collection: users/{uid}
+ * {
+ *   uid: string,          // Firebase Auth UID (Document ID)
+ *   email: string,        // Login email
+ *   role: "business" | "employee", // Determines dashboard access
+ *   profileId: string,    // Points to businesses/{id} or employees/{id}
+ *   createdAt: timestamp
+ * }
+ * 
+ * Business Profiles: businesses/{uid}
+ * {
+ *   uid: string,          // Firebase Auth UID
+ *   name: string,         // Garage Name
+ *   email: string,
+ *   phone: string,
+ *   createdAt: timestamp
+ * }
+ * 
+ * Employee Profiles: employees/{uid}
+ * {
+ *   uid: string,          // Firebase Auth UID
+ *   businessId: string,   // Link to the parent Business (Garage)
+ *   name: string,
+ *   email: string,
+ *   createdAt: timestamp
+ * }
+ */
