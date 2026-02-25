@@ -3,6 +3,18 @@
 // ├── Search bar (visible when list has items)
 // ├── Customer list  ← reads from Firestore
 // └── CreateModal    ← writes to Firestore, updates list on success
+// ══════════════════════════════════════════════════════════════════════════════
+// FIRESTORE DATA STRUCTURE — customers/{auto-id}
+// ══════════════════════════════════════════════════════════════════════════════
+// {
+//   name:      string          // required
+//   phone:     string | null
+//   email:     string | null
+//   address:   string | null
+//   notes:     string | null   // optional internal notes
+//   createdAt: Timestamp       // serverTimestamp()
+//   updatedAt: Timestamp       // serverTimestamp()
+// }
 
 import { useState, useEffect } from "react";
 import { initializeApp,getApps } from "firebase/app";
@@ -25,21 +37,7 @@ const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// FIRESTORE DATA STRUCTURE — customers/{auto-id}
-// ══════════════════════════════════════════════════════════════════════════════
-// {
-//   name:      string          // required
-//   phone:     string | null
-//   email:     string | null
-//   address:   string | null
-//   notes:     string | null   // optional internal notes
-//   createdAt: Timestamp       // serverTimestamp()
-//   updatedAt: Timestamp       // serverTimestamp()
-// }
-
 // ─── Firestore Helper──────────────────────────────────────────────────────
-
 async function fetchCustomers() {
   const querySnapshot = await getDocs(query(collection(db, "customers"), orderBy("createdAt", "desc")));
   const customers = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
