@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from '../firebase';
 import { NavigationBar } from '../components/NavigationBar';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,8 +23,30 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/Home');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Fetch user role from Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const role = userData.role;
+
+        if (role === 'business') {
+          navigate('/business/home');
+        } else if (role === 'employee') {
+          navigate('/employee/home');
+        } else {
+          // Default fallback if role is undefined or unknown
+          console.warn("User has no role or unknown role:", role);
+          navigate('/Home');
+        }
+      } else {
+        console.error("No such user document!");
+        setError('User profile not found. Please contact support.');
+      }
     } catch (err) {
       console.error(err);
       setError('Invalid email or password');
@@ -131,9 +154,9 @@ export default function LoginPage() {
           {/* Footer */}
           <p className="text-center text-sm text-[#787774]">
             Don't have an account?{' '}
-            <a href="#" className={notionClasses.link}>
+            <Link to="/Signup" className={notionClasses.link}>
               Sign up
-            </a>
+            </Link>
           </p>
         </div>
       </div>
