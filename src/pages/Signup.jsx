@@ -7,13 +7,27 @@ import { NavigationBar } from '../components/NavigationBar';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, ArrowRight, Lock, Mail, User } from "lucide-react"
+import { Loader2, ArrowRight, Lock, Mail, User, Building2, Check, ChevronsUpDown } from "lucide-react"
 import { notionClasses } from '@/lib/notion-theme';
+
+// Mock businesses data
+const MOCK_BUSINESSES = [
+  { id: 'b1', name: 'AutoFix Garage' },
+  { id: 'b2', name: 'Speedy Repairs' },
+  { id: 'b3', name: 'Mechanic Masters' },
+  { id: 'b4', name: 'Downtown Auto Care' },
+  { id: 'b5', name: 'Luxury Wheels Service' },
+  { id: 'b6', name: 'Prime Motors' },
+  { id: 'b7', name: 'Elite Car Services' },
+  { id: 'b8', name: 'City Garage' },
+];
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('employee'); // Default role
+  const [businessId, setBusinessId] = useState('');
+  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -22,6 +36,12 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (role === 'employee' && !businessId) {
+      setError('Please select a business.');
+      setLoading(false);
+      return;
+    }
 
     try {
       // 1. Create user in Firebase Auth
@@ -59,7 +79,7 @@ export default function SignupPage() {
       } else {
         const employeeData = {
           uid: user.uid,
-          businessId: "", // To be assigned later
+          businessId: businessId, // Assigned from state
           name: "", // To be filled later
           email: user.email,
           createdAt: timestamp
@@ -180,6 +200,37 @@ export default function SignupPage() {
                   </div>
                 </div>
               </div>
+
+              {role === 'employee' && (
+                <div className="space-y-2 relative">
+                  <Label htmlFor="business" className={notionClasses.label}>
+                    Select Business
+                  </Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-[#9B9A97] z-10" />
+                    
+                    <select
+                      id="business"
+                      value={businessId}
+                      onChange={(e) => setBusinessId(e.target.value)}
+                      className={`${notionClasses.input} w-full appearance-none bg-white`}
+                    >
+                      <option value="" disabled>Select a business...</option>
+                      {MOCK_BUSINESSES.map((business) => (
+                        <option key={business.id} value={business.id}>
+                          {business.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[#37352F]">
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className={notionClasses.errorBox}>
