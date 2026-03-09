@@ -17,8 +17,7 @@
 // }
 
 import { useState, useEffect } from "react";
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { auth,db } from "/src/firebase.js";
 import {
   getFirestore,
   addDoc,
@@ -27,48 +26,44 @@ import {
   serverTimestamp,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 
-import { notionTheme, notionClasses } from "/src/lib/notion-theme"; 
-
-// ─────────────────────────────────────────────
-// Firebase
-// ─────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyA9dLSpj5P_8dCPUfPzi5ydeIx-_aFBs-0",
-  authDomain: "classic-garage-mgmt.firebaseapp.com",
-  projectId: "classic-garage-mgmt",
-  storageBucket: "classic-garage-mgmt.firebasestorage.app",
-  messagingSenderId: "215021063501",
-  appId: "1:215021063501:web:c4abed06c04b7955d8fb04",
-};
-
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-const db = getFirestore(app);
+import { notionClasses } from "/src/lib/notion-theme"; 
 
 // ─────────────────────────────────────────────
 // Firestore Helpers
 // ─────────────────────────────────────────────
-async function fetchCustomers() {
+async function fetchCustomers(businessId) {
   const querySnapshot = await getDocs(
-    query(collection(db, "customers"), orderBy("createdAt", "desc"))
+    query(
+      collection(db, "businesses", businessId, "Customers"),
+      orderBy("createdAt", "desc")
+    )
   );
-
   return querySnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   }));
 }
 
-async function createCustomer(data) {
-  const docRef = await addDoc(collection(db, "customers"), {
+async function createCustomer(businessId, data) {
+  const docRef = await addDoc(
+    collection(db, "businesses", businessId, "Customers"), {
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
   return { id: docRef.id };
+}
+
+async function fetchBusinessId(userUid) {
+  const snap = await getDocs(
+    query(collection(db, "businesses"), where("uid", "==", userUid))
+  );
+  if (snap.empty) return null;
+  return snap.docs[0].id; 
 }
 
 // ─────────────────────────────────────────────
@@ -98,18 +93,12 @@ function validate(form) {
 // ─────────────────────────────────────────────
 // Input Component (Notion Style)
 // ─────────────────────────────────────────────
-function Input({
-  label,
-  name,
-  type = "text",
-  value,
-  onChange,
-  error,
-  multiline,
-}) {
+function Input({ label, name, type = "text", value, onChange, error, multiline }) {
   return (
-    <div className="space-y-1">
-      <label className={notionClasses.label}>{label}</label>
+    <div className="flex flex-col gap-1">
+      <label className="text-sm font-medium text-[#37352F]">
+        {label}
+      </label>
 
       {multiline ? (
         <textarea
@@ -117,7 +106,7 @@ function Input({
           value={value}
           onChange={onChange}
           rows={3}
-          className={`${notionClasses.input} h-auto py-2`}
+          className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all resize-none"
         />
       ) : (
         <input
@@ -125,23 +114,33 @@ function Input({
           type={type}
           value={value}
           onChange={onChange}
-          className={notionClasses.input}
+          className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
         />
       )}
 
-      {error && (
-        <p className="text-sm text-[#C53030]">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-xs text-[#C53030]">{error}</p>}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────
-// Modal
+// Create Button (used in header and empty state)
+// ─────────────────────────────────────────────  
+function CreateButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+    >
+      + New Customer
+    </button>
+  );
+}
+
 // ─────────────────────────────────────────────
-function CreateModal({ onClose, onCreated }) {
+// Create Modal
+// ─────────────────────────────────────────────
+function CreateModal({ onClose, onCreated, businessId }) {
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -168,7 +167,7 @@ function CreateModal({ onClose, onCreated }) {
     setSaving(true);
 
     try {
-      const { id } = await createCustomer({
+      const { id } = await createCustomer(businessId, {
         name: form.name.trim(),
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
@@ -178,7 +177,11 @@ function CreateModal({ onClose, onCreated }) {
 
       onCreated({
         id,
-        ...form,
+        name:    form.name.trim(),
+        phone:   form.phone.trim() || null,
+        email:   form.email.trim() || null,
+        address: form.address.trim() || null,
+        notes:   form.notes.trim() || null,
       });
 
       onClose();
@@ -235,10 +238,10 @@ function CreateModal({ onClose, onCreated }) {
           multiline
         />
 
-        <div className="flex justify-end gap-3 pt-4">
+        <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-[#787774] hover:text-[#37352F]"
+            className="h-11 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
           >
             Cancel
           </button>
@@ -246,7 +249,7 @@ function CreateModal({ onClose, onCreated }) {
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className={notionClasses.button}
+            className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
           >
             {saving ? "Saving..." : "Create"}
           </button>
@@ -264,22 +267,33 @@ export default function CreateCustomerPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
+  const [businessId, setBusinessId] = useState(null);
 
   useEffect(() => {
-    fetchCustomers()
-      .then(setCustomers)
-      .finally(() => setLoading(false));
-  }, []);
+  const unsubscribe = auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      const bizId = await fetchBusinessId(user.uid);
+      setBusinessId(bizId);
+      fetchCustomers(bizId)
+        .then(setCustomers)
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  });
+  return () => unsubscribe();
+}, []);
+
 
   const handleCreated = (newCustomer) => {
     setCustomers((prev) => [newCustomer, ...prev]);
   };
 
   const filtered = customers.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
-    (c.phone && c.phone.includes(search))
-  );
+  (c.name && c.name.toLowerCase().includes(search.toLowerCase())) ||
+  (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
+  (c.phone && c.phone.includes(search))
+);
 
   return (
     <div className={notionClasses.pageContainer}>
@@ -292,16 +306,14 @@ export default function CreateCustomerPage() {
               Customers
             </h1>
             <p className={notionClasses.header.subtitle}>
-              {loading ? "Loading..." : `${customers.length} total`}
+              {loading ? "Loading..." : `You have ${customers.length} customers`}
             </p>
           </div>
 
-          <button
-            onClick={() => setShowModal(true)}
-            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
-          >
-            + New
-          </button>
+          {customers.length > 0 && loading === false && (
+            <CreateButton onClick={() => setShowModal(true)} />
+          )}
+
         </div>
 
         {/* Search */}
@@ -323,15 +335,10 @@ export default function CreateCustomerPage() {
           </p>
         ) : customers.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
-            <p className="text-sm text-[#787774] mb-4">
-              No customers yet.
-            </p>
-            <button
-              onClick={() => setShowModal(true)}
-              className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
-            >
-              + Create Customer
-            </button>
+            <p className="text-sm text-[#787774] mb-4">No customers yet.</p>
+            <div className="flex justify-center">
+              <CreateButton onClick={() => setShowModal(true)} />
+            </div>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[#E0E0E0] bg-white shadow-sm">
@@ -360,6 +367,7 @@ export default function CreateCustomerPage() {
 
         {showModal && (
           <CreateModal
+            businessId={businessId}
             onClose={() => setShowModal(false)}
             onCreated={handleCreated}
           />
