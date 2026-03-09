@@ -30,30 +30,18 @@
 // }
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import { initializeApp, getApps } from "firebase/app";
+import { useState, useEffect, useMemo } from "react";
+import { auth, db } from "/src/firebase.js";
 import {
-  getFirestore,
   addDoc,
   getDocs,
   collection,
   serverTimestamp,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 import { notionClasses } from "/src/lib/notion-theme";
-
-// ─────────────────────────────────────────────────────────────
-// Firebase
-// ─────────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyA9dLSpj5P_8dCPUfPzi5ydeIx-_aFBs-0",
-  authDomain: "classic-garage-mgmt.firebaseapp.com",
-  projectId: "classic-garage-mgmt",
-};
-
-const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-const db = getFirestore(app);
 
 // ─────────────────────────────────────────────────────────────
 // Constants
@@ -82,22 +70,44 @@ const BLANK = {
 // ─────────────────────────────────────────────────────────────
 // Firestore Helpers
 // ─────────────────────────────────────────────────────────────
-async function fetchStorage() {
-  const snap = await getDocs(query(collection(db, "storage"), orderBy("createdAt", "desc")));
+
+async function fetchBusinessId(userUid) {
+  const snap = await getDocs(
+    query(collection(db, "businesses"), where("uid", "==", userUid))
+  );
+  if (snap.empty) return null;
+  return snap.docs[0].id;
+}
+
+async function fetchStorage(businessId) {
+  const snap = await getDocs(
+    query(
+      collection(db, "businesses", businessId, "storage"),
+      orderBy("createdAt", "desc")
+    )
+  );
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-async function fetchCustomers() {
-  const snap = await getDocs(query(collection(db, "customers"), orderBy("name")));
+async function fetchCustomers(businessId) {
+  const snap = await getDocs(
+    query(
+      collection(db, "businesses", businessId, "Customers"),
+      orderBy("name")
+    )
+  );
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-async function createStorage(data) {
-  const ref = await addDoc(collection(db, "storage"), {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+async function createStorage(businessId, data) {
+  const ref = await addDoc(
+    collection(db, "businesses", businessId, "storage"),
+    {
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }
+  );
   return ref.id;
 }
 
@@ -106,6 +116,7 @@ async function createStorage(data) {
 // ─────────────────────────────────────────────────────────────
 function validate(form) {
   const e = {};
+  if (!form.customerId) e.customerId = "Customer is required";
   if (!form.type) e.type = "Vehicle type required";
   if (!form.plate.trim()) e.plate = "Plate required";
   if (!form.make) e.make = "Make required";
@@ -119,9 +130,23 @@ function validate(form) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Create Button (shown when list is empty)
+// ─────────────────────────────────────────────────────────────
+function CreateButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+    >
+      + New Vehicle
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // Create Modal
 // ─────────────────────────────────────────────────────────────
-function CreateModal({ customers, onClose, onCreated }) {
+function CreateModal({ businessId, customers, onClose, onCreated }) {
   const [form, setForm] = useState(BLANK);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -185,93 +210,165 @@ function CreateModal({ customers, onClose, onCreated }) {
   };
 
   const handleSubmit = async () => {
-    const e = validate(form);
-    if (Object.keys(e).length) return setErrors(e);
+  const e = validate(form);
+  if (Object.keys(e).length) return setErrors(e);
 
-    setSaving(true);
-    try {
-      const id = await createStorage({
-        ...form,
-        plate: form.plate.trim().toUpperCase(),
-        year: Number(form.year),
-        mileage: form.mileage ? Number(form.mileage) : null,
-        vin: form.vin.trim() || null,
-        customerId: form.customerId || null,
-      });
+  setSaving(true);
+  try {
+    const cleanData = {
+      ...form,
+      plate: form.plate.trim().toUpperCase(),
+      year: Number(form.year),
+      mileage: form.mileage ? Number(form.mileage) : null,
+      vin: form.vin.trim() || null,
+      customerId: form.customerId || null,
+    };
 
-      onCreated({ id, ...form });
-      onClose();
-    } catch {
-      setSaving(false);
-    }
-  };
+    const id = await createStorage(businessId, cleanData);
+    onCreated({ id, ...cleanData });
+    onClose();
+  } catch (err) {
+    console.error(err);
+    setSaving(false);
+  }
+};
 
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-      <div onClick={e => e.stopPropagation()} className="bg-white w-full max-w-lg rounded-xl border border-[#E0E0E0] shadow-lg p-6 space-y-4">
+  <div onClick={onClose} className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+    <div onClick={e => e.stopPropagation()} className="bg-white w-full max-w-lg rounded-xl border border-[#E0E0E0] shadow-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
 
-        <h2 className="text-lg font-semibold text-[#37352F]">Add Vehicle</h2>
+      <h2 className="text-lg font-semibold text-[#37352F]">Add Vehicle</h2>
 
-        <input
-          placeholder="VIN (optional)"
-          value={form.vin}
-          onChange={e => setField("vin", e.target.value)}
-          className={notionClasses.input}
-        />
+      {/* Customer */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-[#37352F]">Customer *</label>
+        <select
+          value={form.customerId}
+          onChange={e => setField("customerId", e.target.value)}
+          className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+        >
+          <option value="">Select a customer</option>
+          {Object.entries(customers).map(([id, name]) => (
+            <option key={id} value={id}>{name}</option>
+          ))}
+        </select>
+        {errors.customerId && <p className="text-xs text-[#C53030]">{errors.customerId}</p>}
+      </div>
 
-        <button onClick={decodeVin} className="text-sm text-[#37352F]">
-          Decode VIN
-        </button>
-
+      {/* VIN */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-[#37352F]">VIN (optional)</label>
+        <div className="flex gap-2">
+          <input
+            placeholder="17-character VIN"
+            value={form.vin}
+            onChange={e => setField("vin", e.target.value)}
+            className="flex-1 px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          />
+          <button
+            onClick={decodeVin}
+            className="px-4 py-2 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all whitespace-nowrap"
+          >
+            Decode VIN
+          </button>
+        </div>
         {vinMsg && (
-          <p className={`text-sm ${vinMsg.type === "ok" ? "text-green-600" : "text-red-600"}`}>
+          <p className={`text-xs ${vinMsg.type === "ok" ? "text-green-600" : "text-[#C53030]"}`}>
             {vinMsg.text}
           </p>
         )}
+        {errors.vin && <p className="text-xs text-[#C53030]">{errors.vin}</p>}
+      </div>
 
-        <select value={form.type} onChange={e => setField("type", e.target.value)} className={notionClasses.input}>
-          <option value="">Select type</option>
-          {VEHICLE_TYPES.map(t => <option key={t}>{t}</option>)}
-        </select>
-
-        <input
-          placeholder="Plate"
-          value={form.plate}
-          onChange={e => setField("plate", e.target.value)}
-          className={notionClasses.input}
-        />
-
-        <select value={form.make} onChange={e => setField("make", e.target.value)} className={notionClasses.input}>
-          <option value="">Make</option>
-          {makes.map(m => <option key={m}>{m}</option>)}
-        </select>
-
-        <select value={form.model} onChange={e => setField("model", e.target.value)} className={notionClasses.input}>
-          <option value="">Model</option>
-          {models.map(m => <option key={m}>{m}</option>)}
-        </select>
-
-        <select value={form.year} onChange={e => setField("year", e.target.value)} className={notionClasses.input}>
-          <option value="">Year</option>
-          {YEARS.map(y => <option key={y}>{y}</option>)}
-        </select>
-
-        <div className="flex justify-end gap-3 pt-4">
-          <button onClick={onClose} className="text-sm text-[#787774]">
-            Cancel
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-[#37352F] text-white text-sm font-medium"
+      {/* Type + Plate */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Type *</label>
+          <select
+            value={form.type}
+            onChange={e => setField("type", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
           >
-            {saving ? "Saving..." : "Save"}
-          </button>
+            <option value="">Select type</option>
+            {VEHICLE_TYPES.map(t => <option key={t}>{t}</option>)}
+          </select>
+          {errors.type && <p className="text-xs text-[#C53030]">{errors.type}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Plate *</label>
+          <input
+            placeholder="e.g. 192-D-3621"
+            value={form.plate}
+            onChange={e => setField("plate", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          />
+          {errors.plate && <p className="text-xs text-[#C53030]">{errors.plate}</p>}
         </div>
       </div>
+
+      {/* Make */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-[#37352F]">Make *</label>
+        <select
+          value={form.make}
+          onChange={e => setField("make", e.target.value)}
+          className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+        >
+          <option value="">Select make</option>
+          {makes.map(m => <option key={m}>{m}</option>)}
+        </select>
+        {errors.make && <p className="text-xs text-[#C53030]">{errors.make}</p>}
+      </div>
+
+      {/* Model + Year */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Model *</label>
+          <select
+            value={form.model}
+            onChange={e => setField("model", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          >
+            <option value="">Select model</option>
+            {models.map(m => <option key={m}>{m}</option>)}
+          </select>
+          {errors.model && <p className="text-xs text-[#C53030]">{errors.model}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Year *</label>
+          <select
+            value={form.year}
+            onChange={e => setField("year", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          >
+            <option value="">Select year</option>
+            {YEARS.map(y => <option key={y}>{y}</option>)}
+          </select>
+          {errors.year && <p className="text-xs text-[#C53030]">{errors.year}</p>}
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={onClose}
+          className="h-12 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
     </div>
-  );
+  </div>
+);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -283,16 +380,27 @@ export default function StoragePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [businessId, setBusinessId] = useState(null);
 
   useEffect(() => {
-    Promise.all([fetchStorage(), fetchCustomers()])
-      .then(([storageData, customerData]) => {
-        setItems(storageData);
-        const map = {};
-        customerData.forEach(c => (map[c.id] = c.name));
-        setCustomers(map);
-      })
-      .finally(() => setLoading(false));
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const bizId = await fetchBusinessId(user.uid);
+        setBusinessId(bizId);
+        Promise.all([fetchStorage(bizId), fetchCustomers(bizId)])
+          .then(([storageData, customerData]) => {
+            setItems(storageData);
+            const map = {};
+            customerData.forEach(c => (map[c.id] = c.name));
+            console.log("customers map:", map);
+            setCustomers(map);
+          })
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const filtered = useMemo(() => {
@@ -308,29 +416,48 @@ export default function StoragePage() {
     <div className={notionClasses.pageContainer}>
       <div className={notionClasses.dashboardContainer}>
 
-        <div className="flex justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className={notionClasses.header.title}>Storage</h1>
+            <h1 className={notionClasses.header.title}>
+              Storage
+            </h1>
             <p className={notionClasses.header.subtitle}>
-              {loading ? "Loading..." : `${items.length} vehicles`}
+              {loading ? "Loading..." : `You have ${items.length} vehicles`}
             </p>
           </div>
-          <button onClick={() => setShowModal(true)} className="h-10 px-4 rounded-lg bg-[#37352F] text-white text-sm">
-            + New Vehicle
-          </button>
+
+          {items.length > 0 && loading === false && (
+            <CreateButton onClick={() => setShowModal(true)} />
+          )}
         </div>
 
+        {/* Search */}
         {items.length > 0 && (
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search..."
-            className={notionClasses.input}
-          />
+          <div className="mb-6">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search..."
+              className={notionClasses.input}
+            />
+          </div>
         )}
 
-        {!loading && filtered.length > 0 && (
-          <div className="overflow-hidden rounded-xl border border-[#E0E0E0] bg-white shadow-sm mt-6">
+        {/* Table */}
+        {loading ? (
+          <p className="text-sm text-[#787774]">
+            Loading storage...
+          </p>
+        ) : items.length === 0 ? (
+          <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
+            <p className="text-sm text-[#787774] mb-4">No vehicles yet.</p>
+            <div className="flex justify-center">
+              <CreateButton onClick={() => setShowModal(true)} />
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-[#E0E0E0] bg-white shadow-sm">
             <table className="min-w-full">
               <thead>
                 <tr>
@@ -342,13 +469,9 @@ export default function StoragePage() {
               <tbody>
                 {filtered.map(item => (
                   <tr key={item.id} className={notionClasses.table.row}>
-                    <td className={notionClasses.table.cell}>
-                      {item.year} {item.make} {item.model}
-                    </td>
+                    <td className={notionClasses.table.cell}>{item.year} {item.make} {item.model}</td>
                     <td className={notionClasses.table.cell}>{item.plate}</td>
-                    <td className={notionClasses.table.cell}>
-                      {customers[item.customerId] || "-"}
-                    </td>
+                    <td className={notionClasses.table.cell}>{customers[item.customerId] || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -358,6 +481,7 @@ export default function StoragePage() {
 
         {showModal && (
           <CreateModal
+            businessId={businessId}
             customers={customers}
             onClose={() => setShowModal(false)}
             onCreated={newItem => setItems(p => [newItem, ...p])}
