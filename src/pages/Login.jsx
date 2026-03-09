@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from "firebase/firestore";
+import { signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { auth, db } from '../firebase';
 import { NavigationBar } from '../components/NavigationBar';
 import { Button } from "@/components/ui/button"
@@ -22,34 +22,46 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    if (password.length < 6) {
+      setError('Password should be at least 6 characters.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Fetch user role from Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const role = userData.role;
-
-        if (role === 'business') {
-          navigate('/business/home');
-        } else if (role === 'employee') {
-          navigate('/employee/home');
-        } else {
-          // Default fallback if role is undefined or unknown
-          console.warn("User has no role or unknown role:", role);
-          navigate('/Home');
-        }
-      } else {
-        console.error("No such user document!");
-        setError('User profile not found. Please contact support.');
+      // 1. Check if owner: businesses where uid == user.uid
+      const bizQuery = query(collection(db, "businesses"), where("uid", "==", user.uid));
+      const bizSnapshot = await getDocs(bizQuery);
+      if (!bizSnapshot.empty) {
+        navigate('/business/home');
+        return;
       }
+
+      // 2. Check if mechanic: look for Employees/{uid} doc in any business
+      const allBizSnapshot = await getDocs(collection(db, "businesses"));
+      for (const bizDoc of allBizSnapshot.docs) {
+        const empRef = doc(db, "businesses", bizDoc.id, "Employees", user.uid);
+        const empDoc = await getDoc(empRef);
+        if (empDoc.exists()) {
+          navigate('/employee/home');
+          return;
+        }
+      }
+
+      // No employee doc found
+      setError('Account not found. Please Sign Up again.');
     } catch (err) {
       console.error(err);
-      setError('Invalid email or password');
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        setError('Invalid email or password');
+      } else if (err.code === 'auth/too-many-requests') {
+        setError('Too many failed login attempts. Please try again later.');
+      } else {
+        setError('Login failed: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -60,7 +72,7 @@ export default function LoginPage() {
       <NavigationBar />
       
       <div className={notionClasses.container}>
-        <div className={notionClasses.cardContainer}>
+        <div className={`${notionClasses.cardContainer} pt-8`}>
           
           {/* Header Section */}
           <div className="text-center space-y-4">
@@ -91,14 +103,14 @@ export default function LoginPage() {
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-2.5 h-4 w-4 text-[#9B9A97]" />
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="name@company.com" 
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className={notionClasses.input}
+                    className={`${notionClasses.input} !pl-10`}
                   />
                 </div>
               </div>
@@ -114,14 +126,14 @@ export default function LoginPage() {
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-[#9B9A97]" />
-                  <Input 
-                    id="password" 
-                    type="password" 
+                  <Input
+                    id="password"
+                    type="password"
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className={notionClasses.input}
+                    className={`${notionClasses.input} !pl-10`}
                   />
                 </div>
               </div>
