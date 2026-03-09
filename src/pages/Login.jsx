@@ -77,7 +77,7 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold tracking-tight text-[#37352F]">
               Welcome back
             </h1>
-            <p className="text-[#787774] text-base">
+            <p className="mt-3 max-w-md mx-auto text-base text-[#787774] sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
               Enter your credentials to access the workspace
             </p>
           </div>
