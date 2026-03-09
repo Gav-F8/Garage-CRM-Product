@@ -5,43 +5,53 @@ export function NavigationBar() {
 
   const navLinks = [
     { name: 'Home', path: '/' },
+    { name: 'Customer', path: '/customer' },
+    { name: 'Storage', path: '/storage' },
     { name: 'Jobs', path: '/jobs' },
     { name: 'Contact', path: '/contact' },
-    { name: 'Login', path: '/login' },
   ];
 
+  const linkClass = (path) => {
+    const isActive = location.pathname === path;
+    return `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-[#F7F7F5] text-[#37352F] font-semibold'
+        : 'text-[#787774] hover:bg-[#F7F7F5] hover:text-[#37352F]'
+    }`;
+  };
+
   return (
-    <nav className="bg-zinc-900 border-b border-emerald-900 shadow-lg shadow-emerald-950/40">
+    <nav className="w-full bg-white border-b border-[#E0E0E0] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
+
+          {/* Left: brand + main links */}
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <span className="font-bold text-xl tracking-tight text-emerald-400">Garage CRM</span>
+              <span className="font-bold text-lg tracking-tight text-[#37352F]">Garage CRM</span>
             </div>
             <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                {navLinks.map((link) => {
-                  const isActive = location.pathname === link.path;
-                  return (
-                    <Link
-                      key={link.name}
-                      to={link.path}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                        isActive
-                          ? 'bg-zinc-800 text-emerald-400 ring-1 ring-emerald-700'
-                          : 'text-zinc-400 hover:bg-zinc-800 hover:text-emerald-300'
-                      }`}
-                    >
-                      {link.name}
-                    </Link>
-                  );
-                })}
+              <div className="ml-10 flex items-baseline space-x-1">
+                {navLinks.map((link) => (
+                  <Link key={link.name} to={link.path} className={linkClass(link.path)}>
+                    {link.name}
+                  </Link>
+                ))}
               </div>
             </div>
           </div>
-          {/* Mobile menu button could go here */}
+
+          {/* Right: Login */}
+          <div className="hidden md:block">
+            <Link to="/login" className={linkClass('/login')}>
+              Login
+            </Link>
+          </div>
+
         </div>
       </div>
     </nav>
   );
 }
+
+export default NavigationBar;
