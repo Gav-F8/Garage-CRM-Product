@@ -1,7 +1,55 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 
 export function NavigationBar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [displayName, setDisplayName] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        try {
+          // Check owner first
+          const bizQuery = query(collection(db, 'businesses'), where('uid', '==', currentUser.uid));
+          const bizSnapshot = await getDocs(bizQuery);
+          if (!bizSnapshot.empty) {
+            const bizData = bizSnapshot.docs[0].data();
+            setDisplayName(bizData.name || currentUser.email.split('@')[0]);
+            return;
+          }
+          // Check mechanic
+          const allBizSnapshot = await getDocs(collection(db, 'businesses'));
+          for (const bizDoc of allBizSnapshot.docs) {
+            const empRef = doc(db, 'businesses', bizDoc.id, 'Employees', currentUser.uid);
+            const empDoc = await getDoc(empRef);
+            if (empDoc.exists() && empDoc.data().Name) {
+              setDisplayName(empDoc.data().Name);
+              return;
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch display name:', err);
+        }
+        // Fallback: email prefix
+        setDisplayName(currentUser.email.split('@')[0]);
+      } else {
+        setUser(null);
+        setDisplayName('');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    navigate('/Login');
+  };
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -41,11 +89,25 @@ export function NavigationBar() {
             </div>
           </div>
 
-          {/* Right: Login */}
-          <div className="hidden md:block">
-            <Link to="/login" className={linkClass('/login')}>
-              Login
-            </Link>
+          {/* Right: user info or Login */}
+          <div className="hidden md:flex items-center gap-3">
+            {user ? (
+              <>
+                <span className="text-sm text-[#787774]">
+                  Welcome, <span className="font-medium text-[#37352F]">{displayName}</span>
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="px-3 py-1.5 rounded-md text-sm font-medium text-[#787774] hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
+                >
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <Link to="/Login" className={linkClass('/login')}>
+                Login
+              </Link>
+            )}
           </div>
 
         </div>
