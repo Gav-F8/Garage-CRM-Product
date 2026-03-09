@@ -1,12 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: dark;
-  color: #d1fae5;
-  background-color: #0f1a14;
+  color-scheme: light;
+  color: #37352F;
+  background-color: #F7F7F5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,23 +16,29 @@
 
 a {
   font-weight: 500;
-  color: #34d399;
+  color: #37352F;
   text-decoration: inherit;
 }
 a:hover {
-  color: #6ee7b7;
+  color: #474540;
+  text-decoration: underline;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background-color: #0f1a14;
+  background-color: #F7F7F5;
 }
 
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  color: #37352F;
+}
+
+h2, h3, h4, h5, h6 {
+  color: #37352F;
 }
 
 button {
@@ -41,15 +48,65 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #34d399;
-  color: #0f1a14;
+  background-color: #37352F;
+  color: #ffffff;
   cursor: pointer;
-  transition: background-color 0.25s, border-color 0.25s;
+  transition: background-color 0.25s, box-shadow 0.25s;
 }
 button:hover {
-  background-color: #6ee7b7;
+  background-color: #474540;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid #37352F;
+  outline-offset: 2px;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  background-color: #ffffff;
+  color: #37352F;
+  border: 1px solid #E0E0E0;
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  font-size: 0.9em;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #37352F;
+  box-shadow: 0 0 0 2px rgba(55, 53, 47, 0.1);
+}
+input::placeholder, textarea::placeholder {
+  color: #9B9A97;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F7F7F5;
+}
+::-webkit-scrollbar-thumb {
+  background: #E0E0E0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9B9A97;
+}
+
+/* Notion-style divider */
+hr {
+  border: none;
+  border-top: 1px solid #E0E0E0;
+  margin: 1rem 0;
+}
+
+/* Notion-style selection highlight */
+::selection {
+  background-color: rgba(55, 53, 47, 0.12);
+  color: #37352F;
 }
