@@ -1,9 +1,25 @@
 const statusStyle = (status) => {
-  switch (status) {
-    case 0: return { label: "Pending",     style: "bg-yellow-100 text-yellow-700 border border-yellow-200" };
-    case 1: return { label: "In Progress", style: "bg-green-100 text-green-700 border border-green-200"   };
-    case 2: return { label: "Complete",    style: "bg-red-100 text-red-700 border border-red-200"         };
-    default: return { label: "Unknown",   style: "bg-gray-100 text-gray-700 border border-gray-200"      };
+  const normalized = typeof status === "number"
+    ? status
+    : String(status || "").trim().toLowerCase();
+
+  switch (normalized) {
+    case 0:
+    case "pending":
+      return { label: "Pending", style: "bg-yellow-100 text-yellow-700 border border-yellow-200" };
+    case 1:
+    case "in progress":
+    case "in_progress":
+    case "in-progress":
+    case "active":
+      return { label: "In Progress", style: "bg-green-100 text-green-700 border border-green-200" };
+    case 2:
+    case "complete":
+    case "completed":
+    case "done":
+      return { label: "Complete", style: "bg-red-100 text-red-700 border border-red-200" };
+    default:
+      return { label: "Unknown", style: "bg-gray-100 text-gray-700 border border-gray-200" };
   }
 };
 
