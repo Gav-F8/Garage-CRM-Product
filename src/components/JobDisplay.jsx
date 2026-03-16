@@ -1,26 +1,41 @@
 import { useEffect, useState } from "react";
 import Job from "./JobDisplayBox";
-
-const fetchJobs = async () => {
-  return [
-    { id: 1, title: "Full Service",      status: 0, inHouse: true,  carReg: "AB12 CDE" },
-    { id: 2, title: "Brake Replacement", status: 1, inHouse: false, carReg: "XY34 FGH" },
-    { id: 3, title: "Oil Change",        status: 2, inHouse: true,  carReg: "LM56 NOP" },
-    { id: 4, title: "Tyre Rotation",     status: 3, inHouse: false, carReg: "QR78 STU" },
-  ];
-};
+import { auth } from "/src/firebase";
+import {
+  fetchBusinessContextByUid,
+  fetchProjectsForContext,
+  mapProjectToJob,
+} from "/src/services/jobService";
 
 const JobDisplay = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadJobs = async () => {
-      const data = await fetchJobs();
-      setJobs(data);
-      setLoading(false);
-    };
-    loadJobs();
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (!user) {
+        setJobs([]);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const context = await fetchBusinessContextByUid(user.uid);
+        const projects = await fetchProjectsForContext({
+          businessId: context.businessId,
+          role: context.role,
+          userUid: user.uid,
+        });
+        setJobs(projects.map(mapProjectToJob));
+      } catch (err) {
+        console.error("Failed to load projects", err);
+        setJobs([]);
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   if (loading) return <p className="p-6 text-[#9B9A97]">Loading jobs...</p>;
