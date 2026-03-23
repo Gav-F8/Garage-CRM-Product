@@ -93,24 +93,31 @@ export default function JobPage() {
         throw new Error("Business ID not found. Please refresh and try again.");
       }
 
+      const currentUser = auth.currentUser;
+      console.log("Current user:", currentUser?.uid);
+      console.log("Business ID:", businessId);
+
       const jobData = {
         customerId: payload.customerId,
         vehicleId: payload.vehicleId,
         currentMileage: payload.currentMileage,
         initialJobDescription: payload.initialJobDescription,
         status: "pending",
+        assignedMechanicId: [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
+      console.log("Attempting to create project with data:", jobData);
+
       const jobRef = await addDoc(
-        collection(db, "businesses", businessId, "Jobs"),
+        collection(db, "businesses", businessId, "Projects"),
         jobData,
       );
 
-      console.log("Job created successfully with ID:", jobRef.id);
+      console.log("Project created successfully with ID:", jobRef.id);
       setSubmitMessage(
-        `Job created successfully! ID: ${jobRef.id}. Select another vehicle to create a new job.`,
+        `Project created successfully! ID: ${jobRef.id}. Select another vehicle to create a new project.`,
       );
 
       // Reset form by reloading customers and vehicles
@@ -126,9 +133,9 @@ export default function JobPage() {
         reloadData();
       }, 1000);
     } catch (error) {
-      console.error("Error creating job:", error);
+      console.error("Error creating project:", error);
       setSubmitError(
-        error.message || "Failed to create job. Please try again.",
+        error.message || "Failed to create project. Please try again.",
       );
     } finally {
       setSubmitting(false);
