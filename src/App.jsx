@@ -13,6 +13,7 @@ import EmployeeHome from './pages/employee/Home';
 import AllProjectsPage from './pages/AllProjectsPage';
 import ProjectDetailsPage from './pages/ProjectDetailsPage';
 import EditProjectPage from './pages/EditProjectPage';
+import ProjectCreation from './pages/Job';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
         <Route path="/jobs" element={<ProtectedRoute><AllProjectsPage /></ProtectedRoute>} />
         <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetailsPage /></ProtectedRoute>} />
         <Route path="/projects/:projectId/edit" element={<ProtectedRoute><EditProjectPage /></ProtectedRoute>} />
+        <Route path="/jobs/new" element={<ProtectedRoute><ProjectCreation /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

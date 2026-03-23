@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
 import { notionClasses } from "/src/lib/notion-theme";
+import { NavigationBar } from "../components/NavigationBar";
 
 export default function AllProjectsPage() {
   const [projects, setProjects] = useState([]);
@@ -18,6 +19,7 @@ export default function AllProjectsPage() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [currentEmployee, setCurrentEmployee] = useState(null);
 
   const businessId = localStorage.getItem("ccgBusinessId");
 
@@ -47,6 +49,7 @@ export default function AllProjectsPage() {
         }
 
         const employeeData = employeeSnap.data();
+        setCurrentEmployee(employeeData);
         const role = employeeData.role;
 
         let projectQuery;
@@ -115,19 +118,31 @@ export default function AllProjectsPage() {
     return String(timestamp);
   }
 
+  const isOwner = currentEmployee?.role === "owner";
+
   return (
     <div className={notionClasses.pageContainer}>
+         <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className={notionClasses.header.title}>Projects</h1>
-            <p className={notionClasses.header.subtitle}>
-              {loading
-                ? "Loading..."
-                : `Showing ${filteredProjects.length} of ${projects.length} projects`}
-            </p>
-          </div>
-        </div>
+       <div className="flex items-center justify-between mb-6">
+            <div>
+                <h1 className={notionClasses.header.title}>Projects</h1>
+                <p className={notionClasses.header.subtitle}>
+                {loading
+                    ? "Loading..."
+                    : `Showing ${filteredProjects.length} of ${projects.length} projects`}
+                </p>
+            </div>
+
+            {isOwner && (
+               <Link
+                to="/jobs/new"
+                className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] !text-white text-sm font-medium shadow-sm transition-all inline-flex items-center justify-center"
+                >
+                + New Project
+                </Link>
+            )}
+            </div>
 
         {!loading && projects.length > 0 && (
           <div className="flex flex-wrap gap-3 mb-4">
