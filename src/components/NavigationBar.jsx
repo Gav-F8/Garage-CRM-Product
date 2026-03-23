@@ -47,6 +47,8 @@ export function NavigationBar() {
   }, []);
 
   const handleSignOut = async () => {
+    localStorage.removeItem("ccgBusinessId");
+    localStorage.removeItem("ccgUserRole");
     await signOut(auth);
     navigate('/Login');
   };

@@ -1,16 +1,18 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./App.css";
 
-import ProtectedRoute from "./components/ProtectedRoute";
-import HomePage from "./pages/Home";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import ContactPage from "./pages/Contact";
-import CustomerPage from "./pages/Customer";
-import JobPage from "./pages/Job";
-import StoragePage from "./pages/Storage";
-import BusinessHome from "./pages/business/Home";
-import EmployeeHome from "./pages/employee/Home";
+import ProtectedRoute from './components/ProtectedRoute';
+import HomePage from './pages/Home'
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ContactPage from './pages/Contact';
+import CustomerPage from './pages/Customer';
+import StoragePage from './pages/Storage';
+import BusinessHome from './pages/business/Home';
+import EmployeeHome from './pages/employee/Home';
+import AllProjectsPage from './pages/AllProjectsPage';
+import ProjectDetailsPage from './pages/ProjectDetailsPage';
+import EditProjectPage from './pages/EditProjectPage';
 
 function App() {
   return (
@@ -22,62 +24,15 @@ function App() {
 
         {/* Protected routes */}
         <Route path="/" element={<Navigate to="/Home" />} />
-        <Route
-          path="/Home"
-          element={
-            <ProtectedRoute>
-              <HomePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/Contact"
-          element={
-            <ProtectedRoute>
-              <ContactPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/Customer"
-          element={
-            <ProtectedRoute>
-              <CustomerPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/jobs"
-          element={
-            <ProtectedRoute>
-              <JobPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/Storage"
-          element={
-            <ProtectedRoute>
-              <StoragePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/business/home"
-          element={
-            <ProtectedRoute>
-              <BusinessHome />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee/home"
-          element={
-            <ProtectedRoute>
-              <EmployeeHome />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/Home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+        <Route path="/Contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
+        <Route path="/Customer" element={<ProtectedRoute><CustomerPage /></ProtectedRoute>} />
+        <Route path="/Storage" element={<ProtectedRoute><StoragePage /></ProtectedRoute>} />
+        <Route path="/business/home" element={<ProtectedRoute><BusinessHome /></ProtectedRoute>} />
+        <Route path="/employee/home" element={<ProtectedRoute><EmployeeHome /></ProtectedRoute>} />
+        <Route path="/jobs" element={<ProtectedRoute><AllProjectsPage /></ProtectedRoute>} />
+        <Route path="/projects/:projectId" element={<ProtectedRoute><ProjectDetailsPage /></ProtectedRoute>} />
+        <Route path="/projects/:projectId/edit" element={<ProtectedRoute><EditProjectPage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
