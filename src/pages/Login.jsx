@@ -35,9 +35,14 @@ export default function LoginPage() {
       // 1. Check if owner: businesses where uid == user.uid
       const bizQuery = query(collection(db, "businesses"), where("uid", "==", user.uid));
       const bizSnapshot = await getDocs(bizQuery);
-      if (!bizSnapshot.empty) {
-        navigate('/business/home');
-        return;
+     if (!bizSnapshot.empty) {
+          const businessId = bizSnapshot.docs[0].id;
+
+          localStorage.setItem("ccgBusinessId", businessId);
+          localStorage.setItem("ccgUserRole", "owner");
+
+          navigate('/business/home');
+          return;
       }
 
       // 2. Check if mechanic: look for Employees/{uid} doc in any business
@@ -46,6 +51,9 @@ export default function LoginPage() {
         const empRef = doc(db, "businesses", bizDoc.id, "Employees", user.uid);
         const empDoc = await getDoc(empRef);
         if (empDoc.exists()) {
+          localStorage.setItem("ccgBusinessId", bizDoc.id);
+          localStorage.setItem("ccgUserRole", "mechanic");
+
           navigate('/employee/home');
           return;
         }
