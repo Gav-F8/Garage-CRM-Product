@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query, where } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import { auth, db } from "/src/firebase.js";
 import { NavigationBar } from "../components/NavigationBar";
 import JobCreation from "../components/JobCreation";
@@ -42,6 +50,7 @@ export default function JobPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -76,18 +85,54 @@ export default function JobPage() {
 
   const handleJobSubmit = async (payload) => {
     setSubmitting(true);
+    setSubmitError("");
+    setSubmitMessage("");
 
-    // This form currently handles UI + state management.
-    // Hook Firestore addDoc logic here when the Jobs collection schema is finalized.
-    console.log("Job form payload:", {
-      businessId,
-      ...payload,
-    });
+    try {
+      if (!businessId) {
+        throw new Error("Business ID not found. Please refresh and try again.");
+      }
 
-    setSubmitMessage(
-      "Job form submitted. Ready to connect to Firestore persistence.",
-    );
-    setSubmitting(false);
+      const jobData = {
+        customerId: payload.customerId,
+        vehicleId: payload.vehicleId,
+        currentMileage: payload.currentMileage,
+        initialJobDescription: payload.initialJobDescription,
+        status: "pending",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      const jobRef = await addDoc(
+        collection(db, "businesses", businessId, "Jobs"),
+        jobData,
+      );
+
+      console.log("Job created successfully with ID:", jobRef.id);
+      setSubmitMessage(
+        `Job created successfully! ID: ${jobRef.id}. Select another vehicle to create a new job.`,
+      );
+
+      // Reset form by reloading customers and vehicles
+      setTimeout(() => {
+        const reloadData = async () => {
+          const [customerList, vehicleList] = await Promise.all([
+            fetchCustomers(businessId),
+            fetchVehicles(businessId),
+          ]);
+          setCustomers(customerList);
+          setVehicles(vehicleList);
+        };
+        reloadData();
+      }, 1000);
+    } catch (error) {
+      console.error("Error creating job:", error);
+      setSubmitError(
+        error.message || "Failed to create job. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -117,7 +162,15 @@ export default function JobPage() {
             />
 
             {submitMessage && (
-              <p className="mt-4 text-sm text-green-700">{submitMessage}</p>
+              <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 border border-green-200">
+                ✓ {submitMessage}
+              </p>
+            )}
+
+            {submitError && (
+              <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 border border-red-200">
+                ✗ {submitError}
+              </p>
             )}
           </>
         )}
