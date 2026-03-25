@@ -41,6 +41,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
+import NavigationBar from "@/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 
 // ─────────────────────────────────────────────────────────────
@@ -414,7 +415,9 @@ export default function StoragePage() {
 
   return (
     <div className={notionClasses.pageContainer}>
+      <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
+
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

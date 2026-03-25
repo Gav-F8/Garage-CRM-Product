@@ -297,6 +297,7 @@ export default function CreateCustomerPage() {
 
   return (
     <div className={notionClasses.pageContainer}>
+      <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
 
         {/* Header */}

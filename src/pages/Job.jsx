@@ -11,6 +11,8 @@ import {
 import { auth, db } from "/src/firebase.js";
 import { NavigationBar } from "../components/NavigationBar";
 import JobCreation from "../components/JobCreation";
+import ProjectsList from "../components/projects/ProjectsList";
+import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { notionClasses } from "../lib/notion-theme";
 
 async function fetchBusinessId(userUid) {
@@ -51,6 +53,15 @@ export default function JobPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
+  const {
+    projects,
+    loading: projectsLoading,
+    error: projectsError,
+    refreshProjects,
+  } = useProjectsForCurrentUser({
+    businessId,
+    enabled: Boolean(businessId),
+  });
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -119,6 +130,7 @@ export default function JobPage() {
       setSubmitMessage(
         `Project created successfully! ID: ${jobRef.id}. Select another vehicle to create a new project.`,
       );
+      refreshProjects();
 
       // Reset form by reloading customers and vehicles
       setTimeout(() => {
@@ -179,6 +191,18 @@ export default function JobPage() {
                 ✗ {submitError}
               </p>
             )}
+
+            <section className="mt-8">
+              <h2 className="mb-2 text-xl font-semibold text-[#37352F]">
+                Existing Projects
+              </h2>
+              <ProjectsList
+                projects={projects}
+                loading={projectsLoading}
+                error={projectsError}
+                searchInputClassName={notionClasses.input}
+              />
+            </section>
           </>
         )}
       </main>
