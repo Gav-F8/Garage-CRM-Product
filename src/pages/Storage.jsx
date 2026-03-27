@@ -31,17 +31,20 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
 import {
   addDoc,
   getDocs,
+  getDoc,
+  doc,
   collection,
   serverTimestamp,
   orderBy,
   query,
   where,
 } from "firebase/firestore";
-import NavigationBar from "@/components/NavigationBar";
+import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
 
 // ─────────────────────────────────────────────────────────────
@@ -80,6 +83,35 @@ async function fetchBusinessId(userUid) {
   return snap.docs[0].id;
 }
 
+async function fetchEmployeeName(businessId, employeeId) {
+  try {
+    console.log("Fetching employee name for:", businessId, employeeId);
+    
+    // Try to get the employee document directly using the ID
+    const employeeRef = doc(db, "businesses", businessId, "Employees", employeeId);
+    const snap = await getDoc(employeeRef);
+    
+    console.log("Employee document exists:", snap.exists());
+    const data = snap.data();
+    console.log("Employee document data:", data);
+    
+    if (snap.exists() && data) {
+      // Try both "Name" (capitalized) and "name" (lowercase)
+      const name = data.Name || data.name;
+      if (name) {
+        console.log("Found employee name:", name);
+        return name;
+      }
+    }
+    
+    console.warn(`Employee ${employeeId} not found or has no name`);
+    return null;
+  } catch (error) {
+    console.error("Error fetching employee name:", error);
+    return null;
+  }
+}
+
 async function fetchStorage(businessId) {
   const snap = await getDocs(
     query(
@@ -100,11 +132,90 @@ async function fetchCustomers(businessId) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+async function checkHasJob(businessId, storageId, customerId) {
+  try {
+    // Query Projects collection to see if any project references this storage or customer
+    const projectsRef = collection(db, "businesses", businessId, "Projects");
+    const q = query(projectsRef);
+    const snap = await getDocs(q);
+    
+    // Check if any project matches the storageId or customerId AND has "active" status
+    for (const doc of snap.docs) {
+      const projectData = doc.data();
+      // Debug logging
+      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+        console.log(`Found project for storage ${storageId}:`, {
+          projectId: doc.id,
+          vehicleId: projectData.vehicleId,
+          customerId: projectData.customerId,
+          status: projectData.status
+        });
+      }
+      if ((projectData.vehicleId === storageId || projectData.customerId === customerId) && 
+          projectData.status === "active") {
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Error checking for jobs:", error);
+    return false;
+  }
+}
+
+async function fetchTotalHours(businessId, storageId, customerId) {
+  try {
+    const projectsRef = collection(db, "businesses", businessId, "Projects");
+    const q = query(projectsRef);
+    const snap = await getDocs(q);
+
+    let totalMinutes = 0;
+    for (const projectDoc of snap.docs) {
+      const projectData = projectDoc.data();
+      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+        // Fetch TimeLogs for this project
+        const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
+        const timeLogsSnap = await getDocs(timeLogsRef);
+        
+        for (const timeLogDoc of timeLogsSnap.docs) {
+          const timeLogData = timeLogDoc.data();
+          if (timeLogData.minutes) {
+            totalMinutes += timeLogData.minutes;
+          }
+        }
+      }
+    }
+    
+    // Convert minutes to hours and minutes
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  } catch (error) {
+    console.error("Error fetching total hours:", error);
+    return "0h 0m";
+  }
+}
+
 async function createStorage(businessId, data) {
+  const currentUserId = auth.currentUser?.uid || null;
+  let employeeName = null;
+  
+  if (currentUserId) {
+    employeeName = await fetchEmployeeName(businessId, currentUserId);
+  }
+  
+  // Create carLabel by combining year, make, and model
+  const carLabel = [data.year, data.make, data.model]
+    .filter(Boolean)
+    .join(" ");
+  
   const ref = await addDoc(
     collection(db, "businesses", businessId, "storage"),
     {
       ...data,
+      carLabel: carLabel || null,
+      createdByEmployeeId: currentUserId,
+      createdByEmployeeName: employeeName,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }
@@ -216,6 +327,13 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
 
   setSaving(true);
   try {
+    const currentUserId = auth.currentUser?.uid || null;
+    let employeeName = null;
+    
+    if (currentUserId) {
+      employeeName = await fetchEmployeeName(businessId, currentUserId);
+    }
+
     const cleanData = {
       ...form,
       plate: form.plate.trim().toUpperCase(),
@@ -226,7 +344,19 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
     };
 
     const id = await createStorage(businessId, cleanData);
-    onCreated({ id, ...cleanData });
+    
+    // Create carLabel for display
+    const carLabel = [cleanData.year, cleanData.make, cleanData.model]
+      .filter(Boolean)
+      .join(" ");
+
+    onCreated({ 
+      id, 
+      ...cleanData,
+      carLabel: carLabel || null,
+      createdByEmployeeId: currentUserId,
+      createdByEmployeeAcc: employeeName,
+    });
     onClose();
   } catch (err) {
     console.error(err);
@@ -351,6 +481,33 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
         </div>
       </div>
 
+      {/* Color + Mileage */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Color (optional)</label>
+          <select
+            value={form.color}
+            onChange={e => setField("color", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          >
+            <option value="">Select color</option>
+            {COLORS.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Mileage (km, optional)</label>
+          <input
+            placeholder="e.g. 50000"
+            type="number"
+            value={form.mileage}
+            onChange={e => setField("mileage", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          />
+          {errors.mileage && <p className="text-xs text-[#C53030]">{errors.mileage}</p>}
+        </div>
+      </div>
+
       {/* Buttons */}
       <div className="flex justify-end gap-3 pt-2">
         <button
@@ -376,12 +533,15 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
 // Main Page
 // ─────────────────────────────────────────────────────────────
 export default function StoragePage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [customers, setCustomers] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [businessId, setBusinessId] = useState(null);
+  const [hasJobMap, setHasJobMap] = useState({});
+  const [totalHoursMap, setTotalHoursMap] = useState({});
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -389,12 +549,24 @@ export default function StoragePage() {
         const bizId = await fetchBusinessId(user.uid);
         setBusinessId(bizId);
         Promise.all([fetchStorage(bizId), fetchCustomers(bizId)])
-          .then(([storageData, customerData]) => {
+          .then(async ([storageData, customerData]) => {
             setItems(storageData);
             const map = {};
             customerData.forEach(c => (map[c.id] = c.name));
             console.log("customers map:", map);
             setCustomers(map);
+            
+            // Check for jobs for each storage item
+            const jobMap = {};
+            const hoursMap = {};
+            for (const item of storageData) {
+              const hasJob = await checkHasJob(bizId, item.id, item.customerId);
+              jobMap[item.id] = hasJob;
+              const hours = await fetchTotalHours(bizId, item.id, item.customerId);
+              hoursMap[item.id] = hours;
+            }
+            setHasJobMap(jobMap);
+            setTotalHoursMap(hoursMap);
           })
           .finally(() => setLoading(false));
       } else {
@@ -467,14 +639,32 @@ export default function StoragePage() {
                   <th className={notionClasses.table.header}>Vehicle</th>
                   <th className={notionClasses.table.header}>Plate</th>
                   <th className={notionClasses.table.header}>Customer</th>
+                  <th className={notionClasses.table.header}>Total Hours</th>
+                  <th className={notionClasses.table.header}>Active Job</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(item => (
-                  <tr key={item.id} className={notionClasses.table.row}>
+                  <tr 
+                    key={item.id} 
+                    className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
+                    onClick={() => {
+                      navigate(`/storage/${item.id}`);
+                    }}
+                  >
                     <td className={notionClasses.table.cell}>{item.year} {item.make} {item.model}</td>
                     <td className={notionClasses.table.cell}>{item.plate}</td>
                     <td className={notionClasses.table.cell}>{customers[item.customerId] || "-"}</td>
+                    <td className={notionClasses.table.cell}>{totalHoursMap[item.id] || "0h 0m"}</td>
+                    <td className={notionClasses.table.cell}>
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                        hasJobMap[item.id] 
+                          ? 'bg-red-100 text-red-700' 
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {hasJobMap[item.id] ? 'Yes' : 'No'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -487,7 +677,12 @@ export default function StoragePage() {
             businessId={businessId}
             customers={customers}
             onClose={() => setShowModal(false)}
-            onCreated={newItem => setItems(p => [newItem, ...p])}
+            onCreated={async (newItem) => {
+              setItems(p => [newItem, ...p]);
+              const hasJob = await checkHasJob(businessId, newItem.id, newItem.customerId);
+              setHasJobMap(p => ({ ...p, [newItem.id]: hasJob }));
+              setTotalHoursMap(p => ({ ...p, [newItem.id]: "0h 0m" }));
+            }}
           />
         )}
       </div>
