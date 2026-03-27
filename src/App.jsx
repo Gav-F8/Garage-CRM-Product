@@ -8,6 +8,7 @@ import Signup from './pages/Signup';
 import ContactPage from './pages/Contact';
 import CustomerPage from './pages/Customer';
 import StoragePage from './pages/Storage';
+import StorageDetailPage from './pages/StorageDetail';
 import BusinessHome from './pages/business/Home';
 import EmployeeHome from './pages/employee/Home';
 import AllProjectsPage from './pages/AllProjectsPage';
@@ -29,6 +30,7 @@ function App() {
         <Route path="/Contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
         <Route path="/Customer" element={<ProtectedRoute><CustomerPage /></ProtectedRoute>} />
         <Route path="/Storage" element={<ProtectedRoute><StoragePage /></ProtectedRoute>} />
+        <Route path="/storage/:storageId" element={<ProtectedRoute><StorageDetailPage /></ProtectedRoute>} />
         <Route path="/business/home" element={<ProtectedRoute><BusinessHome /></ProtectedRoute>} />
         <Route path="/employee/home" element={<ProtectedRoute><EmployeeHome /></ProtectedRoute>} />
         <Route path="/jobs" element={<ProtectedRoute><AllProjectsPage /></ProtectedRoute>} />
