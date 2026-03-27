@@ -16,12 +16,13 @@
 //   updatedAt: Timestamp       // serverTimestamp()
 // }
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { auth,db } from "/src/firebase.js";
 import {
-  getFirestore,
   addDoc,
   getDocs,
+  getDoc,
+  doc,
   collection,
   serverTimestamp,
   orderBy,
@@ -30,6 +31,7 @@ import {
 } from "firebase/firestore";
 
 import { notionClasses } from "/src/lib/notion-theme"; 
+import { NavigationBar } from "/src/components/NavigationBar.jsx";
 
 // ─────────────────────────────────────────────
 // Firestore Helpers
@@ -48,9 +50,18 @@ async function fetchCustomers(businessId) {
 }
 
 async function createCustomer(businessId, data) {
+  const currentUserId = auth.currentUser?.uid || null;
+  let employeeName = null;
+  
+  if (currentUserId) {
+    employeeName = await fetchEmployeeName(businessId, currentUserId);
+  }
+  
   const docRef = await addDoc(
     collection(db, "businesses", businessId, "Customers"), {
     ...data,
+    createdByEmployeeId: currentUserId,
+    createdByEmployeeName: employeeName,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -64,6 +75,50 @@ async function fetchBusinessId(userUid) {
   );
   if (snap.empty) return null;
   return snap.docs[0].id; 
+}
+
+async function fetchEmployeeName(businessId, employeeId) {
+  try {
+    // Try to get the employee document directly using the ID
+    const employeeRef = doc(db, "businesses", businessId, "Employees", employeeId);
+    const snap = await getDoc(employeeRef);
+    
+    if (snap.exists()) {
+      const data = snap.data();
+      // Try both "Name" (capitalized) and "name" (lowercase)
+      const name = data.Name || data.name;
+      if (name) {
+        return name;
+      }
+    }
+    
+    console.warn(`Employee ${employeeId} not found or has no name`);
+    return null;
+  } catch (error) {
+    console.error("Error fetching employee name:", error);
+    return null;
+  }
+}
+
+async function checkHasJob(businessId, customerId) {
+  try {
+    // Query Projects collection to see if any project references this customer
+    const projectsRef = collection(db, "businesses", businessId, "Projects");
+    const q = query(projectsRef);
+    const snap = await getDocs(q);
+    
+    // Check if any project matches the customerId AND has "active" status
+    for (const doc of snap.docs) {
+      const projectData = doc.data();
+      if (projectData.customerId === customerId && projectData.status === "active") {
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error("Error checking for jobs:", error);
+    return false;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -167,6 +222,13 @@ function CreateModal({ onClose, onCreated, businessId }) {
     setSaving(true);
 
     try {
+      const currentUserId = auth.currentUser?.uid || null;
+      let employeeName = null;
+      
+      if (currentUserId) {
+        employeeName = await fetchEmployeeName(businessId, currentUserId);
+      }
+
       const { id } = await createCustomer(businessId, {
         name: form.name.trim(),
         phone: form.phone.trim() || null,
@@ -182,10 +244,13 @@ function CreateModal({ onClose, onCreated, businessId }) {
         email:   form.email.trim() || null,
         address: form.address.trim() || null,
         notes:   form.notes.trim() || null,
+        createdByEmployeeId: currentUserId,
+        createdByEmployeeAcc: employeeName,
       });
 
       onClose();
-    } catch (err) {
+    } catch (error) {
+      console.error("Error creating customer:", error);
       setErrors({ name: "Failed to save. Try again." });
       setSaving(false);
     }
@@ -268,6 +333,9 @@ export default function CreateCustomerPage() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [businessId, setBusinessId] = useState(null);
+  const searchInputRef = useRef(null);
+  const [hasJobMap, setHasJobMap] = useState({});
+  const [selectedId, setSelectedId] = useState(null);
 
   useEffect(() => {
   const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -275,7 +343,17 @@ export default function CreateCustomerPage() {
       const bizId = await fetchBusinessId(user.uid);
       setBusinessId(bizId);
       fetchCustomers(bizId)
-        .then(setCustomers)
+        .then(async (customerData) => {
+          setCustomers(customerData);
+          
+          // Check for jobs for each customer
+          const jobMap = {};
+          for (const customer of customerData) {
+            const hasJob = await checkHasJob(bizId, customer.id);
+            jobMap[customer.id] = hasJob;
+          }
+          setHasJobMap(jobMap);
+        })
         .finally(() => setLoading(false));
     } else {
       setLoading(false);
@@ -284,9 +362,22 @@ export default function CreateCustomerPage() {
   return () => unsubscribe();
 }, []);
 
+  // Clear search input after modal closes to prevent autofill
+  useEffect(() => {
+    if (!showModal && searchInputRef.current) {
+      searchInputRef.current.value = "";
+    }
+  }, [showModal]);
 
-  const handleCreated = (newCustomer) => {
+
+  const handleCreated = async (newCustomer) => {
     setCustomers((prev) => [newCustomer, ...prev]);
+    setSearch(""); // Reset search when new customer is added
+    setShowModal(false); // Close modal
+    
+    // Check if new customer has a job
+    const hasJob = await checkHasJob(businessId, newCustomer.id);
+    setHasJobMap(p => ({ ...p, [newCustomer.id]: hasJob }));
   };
 
   const filtered = customers.filter((c) =>
@@ -321,9 +412,14 @@ export default function CreateCustomerPage() {
         {customers.length > 0 && (
           <div className="mb-6">
             <input
+              ref={searchInputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search customers..."
+              autoComplete="off"
+              spellCheck="false"
+              name="search-customers"
+              type="text"
               className={notionClasses.input}
             />
           </div>
@@ -350,15 +446,29 @@ export default function CreateCustomerPage() {
                   <th className={notionClasses.table.header}>Email</th>
                   <th className={notionClasses.table.header}>Phone</th>
                   <th className={notionClasses.table.header}>Address</th>
+                  <th className={notionClasses.table.header}>Active Job</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <tr key={c.id} className={notionClasses.table.row}>
+                  <tr 
+                    key={c.id} 
+                    className={`${notionClasses.table.row} cursor-pointer hover:bg-[#F7F6F3] transition-all`}
+                    onClick={() => setSelectedId(selectedId === c.id ? null : c.id)}
+                  >
                     <td className={notionClasses.table.cell}>{c.name}</td>
                     <td className={notionClasses.table.cell}>{c.email || "-"}</td>
                     <td className={notionClasses.table.cell}>{c.phone || "-"}</td>
                     <td className={notionClasses.table.cell}>{c.address || "-"}</td>
+                    <td className={notionClasses.table.cell}>
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                        hasJobMap[c.id] 
+                          ? 'bg-red-100 text-red-700' 
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {hasJobMap[c.id] ? 'Yes' : 'No'}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
