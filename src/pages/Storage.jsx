@@ -626,7 +626,7 @@ export default function StoragePage() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search..."
+              placeholder="Search storages..."
               className={notionClasses.input}
             />
           </div>
