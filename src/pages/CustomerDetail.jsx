@@ -20,35 +20,21 @@ async function fetchBusinessId(userUid) {
   return snap.docs[0].id;
 }
 
-async function fetchStorageDetail(businessId, storageId) {
+async function fetchCustomerDetail(businessId, customerId) {
   try {
-    const storageRef = doc(db, "businesses", businessId, "storage", storageId);
-    const snap = await getDoc(storageRef);
+    const customerRef = doc(db, "businesses", businessId, "Customers", customerId);
+    const snap = await getDoc(customerRef);
     if (snap.exists()) {
       return { id: snap.id, ...snap.data() };
     }
     return null;
   } catch (error) {
-    console.error("Error fetching storage detail:", error);
+    console.error("Error fetching customer detail:", error);
     return null;
   }
 }
 
-async function fetchCustomerName(businessId, customerId) {
-  try {
-    const customerRef = doc(db, "businesses", businessId, "Customers", customerId);
-    const snap = await getDoc(customerRef);
-    if (snap.exists()) {
-      return snap.data().name || null;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching customer name:", error);
-    return null;
-  }
-}
-
-async function fetchRelatedProjects(businessId, storageId, customerId) {
+async function fetchRelatedProjects(businessId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
     const q = query(projectsRef);
@@ -57,7 +43,7 @@ async function fetchRelatedProjects(businessId, storageId, customerId) {
     const relatedProjects = [];
     for (const doc of snap.docs) {
       const projectData = doc.data();
-      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+      if (projectData.customerId === customerId) {
         relatedProjects.push({ id: doc.id, ...projectData });
       }
     }
@@ -68,7 +54,7 @@ async function fetchRelatedProjects(businessId, storageId, customerId) {
   }
 }
 
-async function fetchTotalTimeLogs(businessId, storageId, customerId) {
+async function fetchTotalTimeLogs(businessId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
     const q = query(projectsRef);
@@ -77,8 +63,7 @@ async function fetchTotalTimeLogs(businessId, storageId, customerId) {
     let totalMinutes = 0;
     for (const projectDoc of snap.docs) {
       const projectData = projectDoc.data();
-      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
-        // Fetch TimeLogs for this project
+      if (projectData.customerId === customerId) {
         const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
         const timeLogsSnap = await getDocs(timeLogsRef);
         
@@ -91,7 +76,6 @@ async function fetchTotalTimeLogs(businessId, storageId, customerId) {
       }
     }
     
-    // Convert minutes to hours and minutes
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return { totalMinutes, hours, minutes };
@@ -101,11 +85,10 @@ async function fetchTotalTimeLogs(businessId, storageId, customerId) {
   }
 }
 
-export default function StorageDetailPage() {
-  const { storageId } = useParams();
+export default function CustomerDetailPage() {
+  const { customerId } = useParams();
   const navigate = useNavigate();
-  const [storage, setStorage] = useState(null);
-  const [customerName, setCustomerName] = useState(null);
+  const [customer, setCustomer] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [timeLogs, setTimeLogs] = useState({ totalMinutes: 0, hours: 0, minutes: 0 });
@@ -124,57 +107,48 @@ export default function StorageDetailPage() {
           return;
         }
 
-        // Fetch storage detail
-        const storageData = await fetchStorageDetail(bizId, storageId);
-        setStorage(storageData);
+        const customerData = await fetchCustomerDetail(bizId, customerId);
+        setCustomer(customerData);
 
-        if (storageData) {
-          // Fetch customer name
-          if (storageData.customerId) {
-            const name = await fetchCustomerName(bizId, storageData.customerId);
-            setCustomerName(name);
-          }
-
-          // Fetch related projects
-          const projects = await fetchRelatedProjects(bizId, storageId, storageData.customerId);
+        if (customerData) {
+          const projects = await fetchRelatedProjects(bizId, customerId);
           setRelatedProjects(projects);
           
-          // Fetch total time logs
-          const logs = await fetchTotalTimeLogs(bizId, storageId, storageData.customerId);
+          const logs = await fetchTotalTimeLogs(bizId, customerId);
           setTimeLogs(logs);
         }
       } catch (error) {
-        console.error("Error loading storage detail:", error);
+        console.error("Error loading customer detail:", error);
       } finally {
         setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [storageId]);
+  }, [customerId]);
 
   if (loading) {
     return (
       <div className={notionClasses.pageContainer}>
         <NavigationBar />
         <div className={notionClasses.dashboardContainer}>
-          <p className="text-sm text-[#787774]">Loading storage details...</p>
+          <p className="text-sm text-[#787774]">Loading customer details...</p>
         </div>
       </div>
     );
   }
 
-  if (!storage) {
+  if (!customer) {
     return (
       <div className={notionClasses.pageContainer}>
         <NavigationBar />
         <div className={notionClasses.dashboardContainer}>
-          <p className="text-sm text-[#C53030]">Storage not found</p>
+          <p className="text-sm text-[#C53030]">Customer not found</p>
           <button
-            onClick={() => navigate("/storage")}
+            onClick={() => navigate("/customer")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
-            Back to Storage
+            Back to Customers
           </button>
         </div>
       </div>
@@ -185,58 +159,62 @@ export default function StorageDetailPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className={notionClasses.header.title}>
-              {storage.carLabel || `${storage.year} ${storage.make} ${storage.model}`}
+              {customer.name}
             </h1>
             <p className={notionClasses.header.subtitle}>
-              {storage.plate}
+              Customer Details
             </p>
           </div>
           <button
-            onClick={() => navigate("/storage")}
+            onClick={() => navigate("/customer")}
             className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
           >
-            ← Back to Storage
+            ← Back to Customers
           </button>
         </div>
 
-        {/* Storage Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fadeIn">
           <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
-            <h2 className="text-lg font-semibold text-[#37352F] mb-4">Vehicle Information</h2>
+            <h2 className="text-lg font-semibold text-[#37352F] mb-4">Customer Information</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Make</label>
-                <p className="text-sm text-[#37352F]">{storage.make}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">Name</label>
+                <p className="text-sm text-[#37352F]">{customer.name}</p>
               </div>
               
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Model</label>
-                <p className="text-sm text-[#37352F]">{storage.model}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">Email</label>
+                <p className="text-sm text-[#37352F]">
+                  {customer.email ? (
+                    <a href={`mailto:${customer.email}`} className="hover:text-blue-600 transition-colors">
+                      {customer.email}
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </p>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Year</label>
-                <p className="text-sm text-[#37352F]">{storage.year}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">Phone</label>
+                <p className="text-sm text-[#37352F]">
+                  {customer.phone ? (
+                    <a href={`tel:${customer.phone}`} className="hover:text-blue-600 transition-colors">
+                      {customer.phone}
+                    </a>
+                  ) : (
+                    "-"
+                  )}
+                </p>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Type</label>
-                <p className="text-sm text-[#37352F]">{storage.type}</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Plate</label>
-                <p className="text-sm text-[#37352F]">{storage.plate}</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Color</label>
-                <p className="text-sm text-[#37352F]">{storage.color || "-"}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">Address</label>
+                <p className="text-sm text-[#37352F]">{customer.address || "-"}</p>
               </div>
             </div>
           </div>
@@ -246,37 +224,12 @@ export default function StorageDetailPage() {
             
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Mileage (km)</label>
-                <p className="text-sm text-[#37352F]">{storage.mileage || "-"}</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">VIN</label>
-                <p className="text-sm text-[#37352F] break-all">{storage.vin || "-"}</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Customer</label>
-                <p className="text-sm text-[#37352F]">{customerName || "-"}</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Created By</label>
-                <p className="text-sm text-[#37352F]">{storage.createdByEmployeeAcc || "-"}</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Notes</label>
-                <p className="text-sm text-[#37352F]">{storage.notes || "-"}</p>
-              </div>
-
-              <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">Total Project Hours</label>
                 <p className="text-sm text-[#37352F] font-medium">{timeLogs.hours}h {timeLogs.minutes}m</p>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Active Jobs</label>
+                <label className="text-xs font-medium text-[#787774] uppercase">Active Projects</label>
                 <p className="text-sm text-[#37352F] font-medium">
                   {relatedProjects.filter(p => p.status === "active").length} active
                 </p>
@@ -286,16 +239,25 @@ export default function StorageDetailPage() {
                 <label className="text-xs font-medium text-[#787774] uppercase">Total Projects</label>
                 <p className="text-sm text-[#37352F] font-medium">{relatedProjects.length} projects</p>
               </div>
+
+              <div>
+                <label className="text-xs font-medium text-[#787774] uppercase">Notes</label>
+                <p className="text-sm text-[#37352F]">{customer.notes || "-"}</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-[#787774] uppercase">Created By</label>
+                <p className="text-sm text-[#37352F]">{customer.createdByEmployeeAcc || "-"}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Related Projects */}
         <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
           <h2 className="text-lg font-semibold text-[#37352F] mb-4">Related Projects</h2>
 
           {relatedProjects.length === 0 ? (
-            <p className="text-sm text-[#787774]">No projects related to this vehicle.</p>
+            <p className="text-sm text-[#787774]">No projects related to this customer.</p>
           ) : (
             <div className="overflow-hidden rounded-lg border border-[#E0E0E0]">
               <table className="min-w-full">
