@@ -17,6 +17,7 @@
 // }
 
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { auth,db } from "/src/firebase.js";
 import {
   addDoc,
@@ -118,6 +119,39 @@ async function checkHasJob(businessId, customerId) {
   } catch (error) {
     console.error("Error checking for jobs:", error);
     return false;
+  }
+}
+
+async function fetchTotalHours(businessId, customerId) {
+  try {
+    const projectsRef = collection(db, "businesses", businessId, "Projects");
+    const q = query(projectsRef);
+    const snap = await getDocs(q);
+
+    let totalMinutes = 0;
+    for (const projectDoc of snap.docs) {
+      const projectData = projectDoc.data();
+      if (projectData.customerId === customerId) {
+        // Fetch TimeLogs for this project
+        const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
+        const timeLogsSnap = await getDocs(timeLogsRef);
+        
+        for (const timeLogDoc of timeLogsSnap.docs) {
+          const timeLogData = timeLogDoc.data();
+          if (timeLogData.minutes) {
+            totalMinutes += timeLogData.minutes;
+          }
+        }
+      }
+    }
+    
+    // Convert minutes to hours and minutes
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  } catch (error) {
+    console.error("Error fetching total hours:", error);
+    return "0h 0m";
   }
 }
 
@@ -328,6 +362,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
 // Main Page
 // ─────────────────────────────────────────────
 export default function CreateCustomerPage() {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -335,7 +370,7 @@ export default function CreateCustomerPage() {
   const [businessId, setBusinessId] = useState(null);
   const searchInputRef = useRef(null);
   const [hasJobMap, setHasJobMap] = useState({});
-  const [selectedId, setSelectedId] = useState(null);
+  const [totalHoursMap, setTotalHoursMap] = useState({});
 
   useEffect(() => {
   const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -346,13 +381,17 @@ export default function CreateCustomerPage() {
         .then(async (customerData) => {
           setCustomers(customerData);
           
-          // Check for jobs for each customer
+          // Check for jobs and total hours for each customer
           const jobMap = {};
+          const hoursMap = {};
           for (const customer of customerData) {
             const hasJob = await checkHasJob(bizId, customer.id);
             jobMap[customer.id] = hasJob;
+            const hours = await fetchTotalHours(bizId, customer.id);
+            hoursMap[customer.id] = hours;
           }
           setHasJobMap(jobMap);
+          setTotalHoursMap(hoursMap);
         })
         .finally(() => setLoading(false));
     } else {
@@ -378,6 +417,9 @@ export default function CreateCustomerPage() {
     // Check if new customer has a job
     const hasJob = await checkHasJob(businessId, newCustomer.id);
     setHasJobMap(p => ({ ...p, [newCustomer.id]: hasJob }));
+    
+    // Set initial hours for new customer (will be 0h 0m initially)
+    setTotalHoursMap(p => ({ ...p, [newCustomer.id]: "0h 0m" }));
   };
 
   const filtered = customers.filter((c) =>
@@ -446,6 +488,7 @@ export default function CreateCustomerPage() {
                   <th className={notionClasses.table.header}>Email</th>
                   <th className={notionClasses.table.header}>Phone</th>
                   <th className={notionClasses.table.header}>Address</th>
+                  <th className={notionClasses.table.header}>Total Hours</th>
                   <th className={notionClasses.table.header}>Active Job</th>
                 </tr>
               </thead>
@@ -453,13 +496,14 @@ export default function CreateCustomerPage() {
                 {filtered.map((c) => (
                   <tr 
                     key={c.id} 
-                    className={`${notionClasses.table.row} cursor-pointer hover:bg-[#F7F6F3] transition-all`}
-                    onClick={() => setSelectedId(selectedId === c.id ? null : c.id)}
+                    className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
+                    onClick={() => navigate(`/customer/${c.id}`)}
                   >
                     <td className={notionClasses.table.cell}>{c.name}</td>
                     <td className={notionClasses.table.cell}>{c.email || "-"}</td>
                     <td className={notionClasses.table.cell}>{c.phone || "-"}</td>
                     <td className={notionClasses.table.cell}>{c.address || "-"}</td>
+                    <td className={notionClasses.table.cell}>{totalHoursMap[c.id] || "0h 0m"}</td>
                     <td className={notionClasses.table.cell}>
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
                         hasJobMap[c.id] 
