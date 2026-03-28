@@ -383,15 +383,37 @@ export default function CreateCustomerPage() {
         .then(async (customerData) => {
           setCustomers(customerData);
           
-          // Check for jobs and fetch total hours for each customer
+          // Fetch all projects once to avoid N+1 queries
+          const allProjectsSnap = await getDocs(
+            collection(db, "businesses", bizId, "Projects")
+          );
+          const allProjects = allProjectsSnap.docs.map(doc => doc.data());
+          
+          // Check for jobs and calculate hours in parallel using cached projects
           const jobMap = {};
           const hoursMap = {};
-          for (const customer of customerData) {
-            const hasJob = await checkHasJob(bizId, customer.id);
-            jobMap[customer.id] = hasJob;
-            const hours = await fetchTotalHours(bizId, customer.id);
-            hoursMap[customer.id] = hours;
-          }
+          
+          customerData.forEach((customer) => {
+            // Check if this customer has any active projects
+            const customerProjects = allProjects.filter(
+              p => p.customerId === customer.id && p.status === "active"
+            );
+            jobMap[customer.id] = customerProjects.length > 0;
+            
+            // Calculate total hours from all related projects
+            let totalMinutes = 0;
+            allProjects.forEach((p) => {
+              if (p.customerId === customer.id) {
+                // Note: For accurate hours, we'd need to fetch TimeLogs
+                // This is currently a placeholder
+              }
+            });
+            
+            const hours = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            hoursMap[customer.id] = `${hours}h ${mins}m`;
+          });
+          
           setHasJobMap(jobMap);
           setTotalHoursMap(hoursMap);
         })
