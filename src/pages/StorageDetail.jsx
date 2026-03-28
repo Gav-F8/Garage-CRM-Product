@@ -108,7 +108,6 @@ export default function StorageDetailPage() {
   const [customerName, setCustomerName] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [businessId, setBusinessId] = useState(null);
   const [timeLogs, setTimeLogs] = useState({ totalMinutes: 0, hours: 0, minutes: 0 });
 
   useEffect(() => {
@@ -124,8 +123,6 @@ export default function StorageDetailPage() {
           setLoading(false);
           return;
         }
-
-        setBusinessId(bizId);
 
         // Fetch storage detail
         const storageData = await fetchStorageDetail(bizId, storageId);
@@ -276,6 +273,18 @@ export default function StorageDetailPage() {
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">Total Project Hours</label>
                 <p className="text-sm text-[#37352F] font-medium">{timeLogs.hours}h {timeLogs.minutes}m</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-[#787774] uppercase">Active Jobs</label>
+                <p className="text-sm text-[#37352F] font-medium">
+                  {relatedProjects.filter(p => p.status === "active").length} active
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-[#787774] uppercase">Total Projects</label>
+                <p className="text-sm text-[#37352F] font-medium">{relatedProjects.length} projects</p>
               </div>
             </div>
           </div>

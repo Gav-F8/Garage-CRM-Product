@@ -17,8 +17,8 @@
 // }
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { auth,db } from "/src/firebase.js";
+import { useNavigate } from "react-router-dom";
 import {
   addDoc,
   getDocs,
@@ -171,7 +171,7 @@ function validate(form) {
 
   if (
     form.phone &&
-    !/^[\d\s\+\-\(\)]{7,20}$/.test(form.phone)
+    !/^[\d\s+\-()]{7,20}$/.test(form.phone)
   ) {
     errors.phone = "Invalid phone number";
   }
@@ -371,6 +371,8 @@ export default function CreateCustomerPage() {
   const searchInputRef = useRef(null);
   const [hasJobMap, setHasJobMap] = useState({});
   const [totalHoursMap, setTotalHoursMap] = useState({});
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
   const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -381,7 +383,7 @@ export default function CreateCustomerPage() {
         .then(async (customerData) => {
           setCustomers(customerData);
           
-          // Check for jobs and total hours for each customer
+          // Check for jobs and fetch total hours for each customer
           const jobMap = {};
           const hoursMap = {};
           for (const customer of customerData) {
@@ -409,16 +411,11 @@ export default function CreateCustomerPage() {
   }, [showModal]);
 
 
-  const handleCreated = async (newCustomer) => {
+  const handleCreated = (newCustomer) => {
     setCustomers((prev) => [newCustomer, ...prev]);
     setSearch(""); // Reset search when new customer is added
     setShowModal(false); // Close modal
-    
-    // Check if new customer has a job
-    const hasJob = await checkHasJob(businessId, newCustomer.id);
-    setHasJobMap(p => ({ ...p, [newCustomer.id]: hasJob }));
-    
-    // Set initial hours for new customer (will be 0h 0m initially)
+    setHasJobMap(p => ({ ...p, [newCustomer.id]: false }));
     setTotalHoursMap(p => ({ ...p, [newCustomer.id]: "0h 0m" }));
   };
 
@@ -428,19 +425,30 @@ export default function CreateCustomerPage() {
   (c.phone && c.phone.includes(search))
 );
 
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = filtered.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className={notionClasses.header.title}>
               Customers
             </h1>
             <p className={notionClasses.header.subtitle}>
-              {loading ? "Loading..." : `You have ${customers.length} customers`}
+              Manage all your customers and their project history in one place.
             </p>
           </div>
 
@@ -480,44 +488,91 @@ export default function CreateCustomerPage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[#E0E0E0] bg-white shadow-sm">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className={notionClasses.table.header}>Name</th>
-                  <th className={notionClasses.table.header}>Email</th>
-                  <th className={notionClasses.table.header}>Phone</th>
-                  <th className={notionClasses.table.header}>Address</th>
-                  <th className={notionClasses.table.header}>Total Hours</th>
-                  <th className={notionClasses.table.header}>Active Job</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => (
-                  <tr 
-                    key={c.id} 
-                    className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
-                    onClick={() => navigate(`/customer/${c.id}`)}
-                  >
-                    <td className={notionClasses.table.cell}>{c.name}</td>
-                    <td className={notionClasses.table.cell}>{c.email || "-"}</td>
-                    <td className={notionClasses.table.cell}>{c.phone || "-"}</td>
-                    <td className={notionClasses.table.cell}>{c.address || "-"}</td>
-                    <td className={notionClasses.table.cell}>{totalHoursMap[c.id] || "0h 0m"}</td>
-                    <td className={notionClasses.table.cell}>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                        hasJobMap[c.id] 
-                          ? 'bg-red-100 text-red-700' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        {hasJobMap[c.id] ? 'Yes' : 'No'}
-                      </span>
-                    </td>
+          <>
+            {/* Items Per Page and Total Count */}
+            <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+              <div className="text-sm text-[#787774]">
+                Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> customers
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-[#787774]">Show:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="px-3 py-1 text-sm text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] transition-all"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-hidden border border-[#E0E0E0] bg-white shadow-sm">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className={notionClasses.table.header}>Name</th>
+                    <th className={notionClasses.table.header}>Email</th>
+                    <th className={notionClasses.table.header}>Phone</th>
+                    <th className={notionClasses.table.header}>Address</th>
+                    <th className={notionClasses.table.header}>Total Hours</th>
+                    <th className={notionClasses.table.header}>Active Job</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedData.map((c) => (
+                    <tr 
+                      key={c.id} 
+                      className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
+                      onClick={() => navigate(`/customer/${c.id}`)}
+                    >
+                      <td className={notionClasses.table.cell}>{c.name}</td>
+                      <td className={notionClasses.table.cell}>{c.email || "-"}</td>
+                      <td className={notionClasses.table.cell}>{c.phone || "-"}</td>
+                      <td className={notionClasses.table.cell}>{c.address || "-"}</td>
+                      <td className={notionClasses.table.cell}>{totalHoursMap[c.id] || "0h 0m"}</td>
+                      <td className={notionClasses.table.cell}>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                          hasJobMap[c.id] 
+                            ? 'bg-red-100 text-red-700' 
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {hasJobMap[c.id] ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
+                <div className="text-sm text-[#787774]">
+                  Page <span className="font-semibold text-[#37352F]">{currentPage}</span> of <span className="font-semibold text-[#37352F]">{totalPages}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {showModal && (

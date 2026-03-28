@@ -64,7 +64,6 @@ async function fetchTotalTimeLogs(businessId, customerId) {
     for (const projectDoc of snap.docs) {
       const projectData = projectDoc.data();
       if (projectData.customerId === customerId) {
-        // Fetch TimeLogs for this project
         const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
         const timeLogsSnap = await getDocs(timeLogsRef);
         
@@ -77,7 +76,6 @@ async function fetchTotalTimeLogs(businessId, customerId) {
       }
     }
     
-    // Convert minutes to hours and minutes
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return { totalMinutes, hours, minutes };
@@ -109,16 +107,13 @@ export default function CustomerDetailPage() {
           return;
         }
 
-        // Fetch customer detail
         const customerData = await fetchCustomerDetail(bizId, customerId);
         setCustomer(customerData);
 
         if (customerData) {
-          // Fetch related projects
           const projects = await fetchRelatedProjects(bizId, customerId);
           setRelatedProjects(projects);
           
-          // Fetch total time logs
           const logs = await fetchTotalTimeLogs(bizId, customerId);
           setTimeLogs(logs);
         }
@@ -164,7 +159,6 @@ export default function CustomerDetailPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className={notionClasses.header.title}>
@@ -182,7 +176,6 @@ export default function CustomerDetailPage() {
           </button>
         </div>
 
-        {/* Customer Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fadeIn">
           <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
             <h2 className="text-lg font-semibold text-[#37352F] mb-4">Customer Information</h2>
@@ -260,7 +253,6 @@ export default function CustomerDetailPage() {
           </div>
         </div>
 
-        {/* Related Projects */}
         <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
           <h2 className="text-lg font-semibold text-[#37352F] mb-4">Related Projects</h2>
 
