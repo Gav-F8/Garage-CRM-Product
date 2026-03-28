@@ -542,6 +542,8 @@ export default function StoragePage() {
   const [businessId, setBusinessId] = useState(null);
   const [hasJobMap, setHasJobMap] = useState({});
   const [totalHoursMap, setTotalHoursMap] = useState({});
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -585,6 +587,17 @@ export default function StoragePage() {
     );
   }, [items, search]);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = filtered.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
@@ -592,13 +605,13 @@ export default function StoragePage() {
 
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className={notionClasses.header.title}>
               Storage
             </h1>
             <p className={notionClasses.header.subtitle}>
-              {loading ? "Loading..." : `You have ${items.length} vehicles`}
+              Track all your vehicles and their maintenance history in one place.
             </p>
           </div>
 
@@ -632,44 +645,91 @@ export default function StoragePage() {
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[#E0E0E0] bg-white shadow-sm">
-            <table className="min-w-full">
-              <thead>
-                <tr>
-                  <th className={notionClasses.table.header}>Vehicle</th>
-                  <th className={notionClasses.table.header}>Plate</th>
-                  <th className={notionClasses.table.header}>Customer</th>
-                  <th className={notionClasses.table.header}>Total Hours</th>
-                  <th className={notionClasses.table.header}>Active Job</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(item => (
-                  <tr 
-                    key={item.id} 
-                    className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
-                    onClick={() => {
-                      navigate(`/storage/${item.id}`);
-                    }}
-                  >
-                    <td className={notionClasses.table.cell}>{item.year} {item.make} {item.model}</td>
-                    <td className={notionClasses.table.cell}>{item.plate}</td>
-                    <td className={notionClasses.table.cell}>{customers[item.customerId] || "-"}</td>
-                    <td className={notionClasses.table.cell}>{totalHoursMap[item.id] || "0h 0m"}</td>
-                    <td className={notionClasses.table.cell}>
-                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                        hasJobMap[item.id] 
-                          ? 'bg-red-100 text-red-700' 
-                          : 'bg-green-100 text-green-700'
-                      }`}>
-                        {hasJobMap[item.id] ? 'Yes' : 'No'}
-                      </span>
-                    </td>
+          <>
+            {/* Items Per Page and Total Count */}
+            <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+              <div className="text-sm text-[#787774]">
+                Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> vehicles
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-[#787774]">Show:</label>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="px-3 py-1 text-sm text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] transition-all"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-hidden border border-[#E0E0E0] bg-white shadow-sm">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className={notionClasses.table.header}>Vehicle</th>
+                    <th className={notionClasses.table.header}>Plate</th>
+                    <th className={notionClasses.table.header}>Customer</th>
+                    <th className={notionClasses.table.header}>Total Hours</th>
+                    <th className={notionClasses.table.header}>Active Job</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {paginatedData.map(item => (
+                    <tr 
+                      key={item.id} 
+                      className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
+                      onClick={() => {
+                        navigate(`/storage/${item.id}`);
+                      }}
+                    >
+                      <td className={notionClasses.table.cell}>{item.year} {item.make} {item.model}</td>
+                      <td className={notionClasses.table.cell}>{item.plate}</td>
+                      <td className={notionClasses.table.cell}>{customers[item.customerId] || "-"}</td>
+                      <td className={notionClasses.table.cell}>{totalHoursMap[item.id] || "0h 0m"}</td>
+                      <td className={notionClasses.table.cell}>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                          hasJobMap[item.id] 
+                            ? 'bg-red-100 text-red-700' 
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {hasJobMap[item.id] ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
+                <div className="text-sm text-[#787774]">
+                  Page <span className="font-semibold text-[#37352F]">{currentPage}</span> of <span className="font-semibold text-[#37352F]">{totalPages}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {showModal && (
@@ -677,10 +737,9 @@ export default function StoragePage() {
             businessId={businessId}
             customers={customers}
             onClose={() => setShowModal(false)}
-            onCreated={async (newItem) => {
+            onCreated={(newItem) => {
               setItems(p => [newItem, ...p]);
-              const hasJob = await checkHasJob(businessId, newItem.id, newItem.customerId);
-              setHasJobMap(p => ({ ...p, [newItem.id]: hasJob }));
+              setHasJobMap(p => ({ ...p, [newItem.id]: false }));
               setTotalHoursMap(p => ({ ...p, [newItem.id]: "0h 0m" }));
             }}
           />
