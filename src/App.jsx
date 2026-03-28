@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ContactPage from './pages/Contact';
 import CustomerPage from './pages/Customer';
+import CustomerDetailPage from './pages/CustomerDetail';
 import StoragePage from './pages/Storage';
 import StorageDetailPage from './pages/StorageDetail';
 import BusinessHome from './pages/business/Home';
@@ -29,6 +30,7 @@ function App() {
         <Route path="/Home" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
         <Route path="/Contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
         <Route path="/Customer" element={<ProtectedRoute><CustomerPage /></ProtectedRoute>} />
+        <Route path="/customer/:customerId" element={<ProtectedRoute><CustomerDetailPage /></ProtectedRoute>} />
         <Route path="/Storage" element={<ProtectedRoute><StoragePage /></ProtectedRoute>} />
         <Route path="/storage/:storageId" element={<ProtectedRoute><StorageDetailPage /></ProtectedRoute>} />
         <Route path="/business/home" element={<ProtectedRoute><BusinessHome /></ProtectedRoute>} />
