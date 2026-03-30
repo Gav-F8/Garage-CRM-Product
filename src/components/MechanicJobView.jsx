@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { STATUS_OPTIONS, getStatusMeta } from "../lib/status";
 
-const STATUS_OPTIONS = [
-  { value: "green", label: "Green", colorClass: "bg-green-500" },
-  { value: "yellow", label: "Yellow", colorClass: "bg-yellow-400" },
-  { value: "red", label: "Red", colorClass: "bg-red-500" },
-  { value: "blue", label: "Blue", colorClass: "bg-blue-500" },
-];
+const activeMeta = getStatusMeta(status);
 
 function formatElapsedTime(totalSeconds) {
   const hours = Math.floor(totalSeconds / 3600)
@@ -22,7 +18,7 @@ function formatElapsedTime(totalSeconds) {
 export default function MechanicJobView({
   registrationPlate = "Unknown Plate",
   chassisNumber = "Unknown Chassis",
-  initialStatus = "green",
+  initialStatus = "pending",
   initialTechNotes = "",
   onTechNotesChange,
 }) {
@@ -45,8 +41,6 @@ export default function MechanicJobView({
     () => formatElapsedTime(elapsedSeconds),
     [elapsedSeconds],
   );
-
-  const activeStatus = STATUS_OPTIONS.find((option) => option.value === status);
 
   const handleNotesChange = (event) => {
     const value = event.target.value;
@@ -79,11 +73,10 @@ export default function MechanicJobView({
         <button
           type="button"
           onClick={() => setIsRunning((prev) => !prev)}
-          className={`mt-2 h-28 w-28 rounded-full text-lg font-semibold text-white shadow-lg transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 sm:h-36 sm:w-36 sm:text-xl ${
-            isRunning
+          className={`mt-2 h-28 w-28 rounded-full text-lg font-semibold text-white shadow-lg transition-all hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 sm:h-36 sm:w-36 sm:text-xl ${isRunning
               ? "bg-red-500 hover:bg-red-600 focus:ring-red-400"
               : "bg-emerald-500 hover:bg-emerald-600 focus:ring-emerald-400"
-          }`}
+            }`}
           aria-label={isRunning ? "Stop stopwatch" : "Start stopwatch"}
         >
           {isRunning ? "Stop" : "Start"}
@@ -91,35 +84,29 @@ export default function MechanicJobView({
       </div>
 
       <div className="mb-8 rounded-xl border border-[#E0E0E0] bg-white p-4 sm:p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-[#37352F]">
-            Status Indicator
-          </p>
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-3 w-3 rounded-full ${activeStatus?.colorClass || "bg-green-500"}`}
-              aria-hidden="true"
-            />
-            <span className="text-sm text-[#787774]">
-              {activeStatus?.label || "Green"}
-            </span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`h-3 w-3 rounded-full ${activeMeta.style.split(" ")[0] || "bg-green-500"}`}
+            aria-hidden="true"
+          />
+          <span className="text-sm text-[#787774]">
+            {activeMeta.label}
+          </span>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((option) => (
             <button
-              key={option.value}
+              key={option.key}
               type="button"
-              onClick={() => setStatus(option.value)}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all ${
-                status === option.value
+              onClick={() => setStatus(option.key)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-all ${status === option.key
                   ? "border-[#37352F] bg-[#37352F] text-white"
                   : "border-[#E0E0E0] bg-white text-[#37352F] hover:bg-[#F7F6F3]"
-              }`}
+                }`}
             >
               <span
-                className={`h-2.5 w-2.5 rounded-full ${option.colorClass}`}
+                className={`h-2.5 w-2.5 rounded-full ${option.style.split(" ")[0]}`}
                 aria-hidden="true"
               />
               {option.label}

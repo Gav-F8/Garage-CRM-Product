@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
-import ProjectsList from "../components/projects/ProjectsList";
+import ProjectsList from "../components/ProjectsList";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 
 export default function AllProjectsPage() {
