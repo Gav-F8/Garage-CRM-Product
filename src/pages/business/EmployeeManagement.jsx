@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   getDocs,
   doc,
+  getDoc,
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { db } from "../../firebase";
+import { auth, db } from "../../firebase";
 import { NavigationBar } from "../../components/NavigationBar";
 import { notionClasses } from "@/lib/notion-theme";
 import {
@@ -131,7 +134,7 @@ function EmployeeDetailModal({ emp, onClose }) {
 
   const roleBadge =
     {
-      employee: "bg-green-100 text-green-700 border-green-200",
+      mechanic: "bg-green-100 text-green-700 border-green-200",
       pendingApproval: "bg-yellow-100 text-yellow-700 border-yellow-200",
       rejected: "bg-red-100 text-red-700 border-red-200",
       owner: "bg-blue-100 text-blue-700 border-blue-200",
@@ -139,7 +142,7 @@ function EmployeeDetailModal({ emp, onClose }) {
 
   const roleLabel =
     {
-      employee: "Employee",
+      mechanic: "Mechanic",
       pendingApproval: "Pending Approval",
       rejected: "Rejected",
       owner: "Owner",
@@ -311,15 +314,55 @@ function EmployeeCard({
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function EmployeeManagement() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [error, setError] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null); // { type: "approve" | "decline", emp }
+  const [authVerified, setAuthVerified] = useState(false);
 
   const businessId = localStorage.getItem("ccgBusinessId");
+  const userRole = localStorage.getItem("ccgUserRole");
 
+  // ── Step 1: verify the logged-in user really owns this business ──────────
+  useEffect(() => {
+    // Fast client-side check first
+    if (userRole !== "owner") {
+      navigate("/Home", { replace: true });
+      return;
+    }
+
+    if (!businessId) {
+      navigate("/Home", { replace: true });
+      return;
+    }
+
+    // Firestore verification: businesses/{businessId}.uid must match auth user
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        navigate("/Login", { replace: true });
+        return;
+      }
+      try {
+        const bizDoc = await getDoc(doc(db, "businesses", businessId));
+        if (!bizDoc.exists() || bizDoc.data().uid !== currentUser.uid) {
+          // Not the owner of this business — redirect
+          navigate("/Home", { replace: true });
+          return;
+        }
+        setAuthVerified(true);
+      } catch (err) {
+        console.error("Ownership verification failed:", err);
+        navigate("/Home", { replace: true });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [businessId, userRole, navigate]);
+
+  // ── Step 2: only fetch employees after ownership is confirmed ────────────
   const fetchEmployees = async () => {
     if (!businessId) return;
     setLoading(true);
@@ -338,8 +381,8 @@ export default function EmployeeManagement() {
   };
 
   useEffect(() => {
-    fetchEmployees();
-  }, []);
+    if (authVerified) fetchEmployees();
+  }, [authVerified]);
 
   // Called when user clicks "Yes, Approve" or "Yes, Decline" in ConfirmModal
   const handleConfirm = async () => {
@@ -354,13 +397,13 @@ export default function EmployeeManagement() {
     setActionLoading(uid);
     try {
       await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        role: "employee",
+        role: "mechanic",
       });
       setEmployees((prev) =>
-        prev.map((e) => (e.id === uid ? { ...e, role: "employee" } : e)),
+        prev.map((e) => (e.id === uid ? { ...e, role: "mechanic" } : e)),
       );
       setSelectedEmployee((prev) =>
-        prev?.id === uid ? { ...prev, role: "employee" } : prev,
+        prev?.id === uid ? { ...prev, role: "mechanic" } : prev,
       );
     } catch (err) {
       setError("Failed to approve employee.");
@@ -405,7 +448,7 @@ export default function EmployeeManagement() {
   };
 
   const pending = employees.filter((e) => e.role === "pendingApproval");
-  const active = employees.filter((e) => e.role === "employee");
+  const active = employees.filter((e) => e.role === "mechanic");
 
   return (
     <div className={notionClasses.pageContainer}>
