@@ -55,7 +55,7 @@ export default function LoginPage() {
         localStorage.setItem("ccgBusinessId", businessId);
         localStorage.setItem("ccgUserRole", "owner");
 
-        navigate("/business/home");
+        navigate("/home");
         return;
       }
 

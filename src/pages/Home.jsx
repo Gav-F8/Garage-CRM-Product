@@ -1,6 +1,6 @@
 import { NavigationBar } from "../components/NavigationBar";
 import { Link } from "react-router-dom";
-import ProjectsList from "../components/projects/ProjectsList";
+import ProjectsList from "../components/ProjectsList";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { useState, useEffect } from "react";
 import { auth, db } from "/src/firebase.js";

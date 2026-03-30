@@ -11,7 +11,7 @@ import {
 import { auth, db } from "/src/firebase.js";
 import { NavigationBar } from "../components/NavigationBar";
 import JobCreation from "../components/JobCreation";
-import ProjectsList from "../components/projects/ProjectsList";
+import ProjectsList from "../components/ProjectsList";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { notionClasses } from "../lib/notion-theme";
 
