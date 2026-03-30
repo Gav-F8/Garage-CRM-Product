@@ -1,48 +1,62 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword, deleteUser } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
-import { auth, db } from '../firebase';
-import { NavigationBar } from '../components/NavigationBar';
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Loader2, ArrowRight, Lock, Mail } from "lucide-react"
-import { notionClasses } from '@/lib/notion-theme';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { auth, db } from "../firebase";
+import { NavigationBar } from "../components/NavigationBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, ArrowRight, Lock, Mail } from "lucide-react";
+import { notionClasses } from "@/lib/notion-theme";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     if (password.length < 6) {
-      setError('Password should be at least 6 characters.');
+      setError("Password should be at least 6 characters.");
       setLoading(false);
       return;
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
       const user = userCredential.user;
 
       // 1. Check if owner: businesses where uid == user.uid
-      const bizQuery = query(collection(db, "businesses"), where("uid", "==", user.uid));
+      const bizQuery = query(
+        collection(db, "businesses"),
+        where("uid", "==", user.uid),
+      );
       const bizSnapshot = await getDocs(bizQuery);
-     if (!bizSnapshot.empty) {
-          const businessId = bizSnapshot.docs[0].id;
+      if (!bizSnapshot.empty) {
+        const businessId = bizSnapshot.docs[0].id;
 
-          localStorage.setItem("ccgBusinessId", businessId);
-          localStorage.setItem("ccgUserRole", "owner");
+        localStorage.setItem("ccgBusinessId", businessId);
+        localStorage.setItem("ccgUserRole", "owner");
 
-          navigate('/business/home');
-          return;
+        navigate("/business/home");
+        return;
       }
 
       // 2. Check if mechanic: look for Employees/{uid} doc in any business
@@ -51,6 +65,24 @@ export default function LoginPage() {
         const empRef = doc(db, "businesses", bizDoc.id, "Employees", user.uid);
         const empDoc = await getDoc(empRef);
         if (empDoc.exists()) {
+          const empRole = empDoc.data().role;
+
+          if (empRole === "pendingApproval") {
+            await auth.signOut();
+            setError(
+              "Your account is pending approval. Please wait for the owner to activate your account.",
+            );
+            return;
+          }
+
+          if (empRole === "rejected") {
+            await auth.signOut();
+            setError(
+              "Your account request has been declined. Please contact the business owner.",
+            );
+            return;
+          }
+
           localStorage.setItem("ccgBusinessId", bizDoc.id);
           localStorage.setItem("ccgUserRole", "mechanic");
 
@@ -63,10 +95,14 @@ export default function LoginPage() {
       setError('Account not found. Please Sign Up again.');
     } catch (err) {
       console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        setError('Invalid email or password');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed login attempts. Please try again later.');
+      if (
+        err.code === "auth/user-not-found" ||
+        err.code === "auth/wrong-password" ||
+        err.code === "auth/invalid-credential"
+      ) {
+        setError("Invalid email or password");
+      } else if (err.code === "auth/too-many-requests") {
+        setError("Too many failed login attempts. Please try again later.");
       } else {
         setError('Login failed: ' + err.message);
       }
@@ -78,20 +114,24 @@ export default function LoginPage() {
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
-      
+
       <div className={notionClasses.container}>
         <div className={`${notionClasses.cardContainer} pt-8`}>
-          
           {/* Header Section */}
           <div className="text-center space-y-4">
             <div className={notionClasses.iconContainer}>
-              <svg 
-                className="w-8 h-8 text-[#37352F]" 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className="w-8 h-8 text-[#37352F]"
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
               </svg>
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-[#37352F]">
@@ -122,7 +162,7 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className={notionClasses.label}>
@@ -148,8 +188,18 @@ export default function LoginPage() {
 
               {error && (
                 <div className={notionClasses.errorBox}>
-                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="w-4 h-4 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                   {error}
                 </div>
