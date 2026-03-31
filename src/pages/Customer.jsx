@@ -111,7 +111,7 @@ async function checkHasJob(businessId, customerId) {
     // Check if any project matches the customerId AND has "active" status
     for (const doc of snap.docs) {
       const projectData = doc.data();
-      if (projectData.customerId === customerId && projectData.status === "active") {
+      if (projectData.customerId === customerId && projectData.isActive === true) {
         return true;
       }
     }
@@ -396,7 +396,7 @@ export default function CreateCustomerPage() {
           customerData.forEach((customer) => {
             // Check if this customer has any active projects
             const customerProjects = allProjects.filter(
-              p => p.customerId === customer.id && p.status === "active"
+              p => p.customerId === customer.id && p.isActive === true
             );
             jobMap[customer.id] = customerProjects.length > 0;
             

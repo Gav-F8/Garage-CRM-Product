@@ -48,7 +48,7 @@ export default function HomePage() {
         const projectsSnap = await getDocs(
           query(
             collection(db, "businesses", businessId, "Projects"),
-            where("status", "==", "active")
+            where("isActive", "==", true)
           )
         );
 
@@ -168,7 +168,7 @@ export default function HomePage() {
           {/* Right Column - Recent Projects */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-[#37352F]">Recent Projects</h2>
+              <h2 className="text-lg font-semibold text-[#37352F]">Relevent Jobs</h2>
               <Link to="/jobs" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 View All →
               </Link>

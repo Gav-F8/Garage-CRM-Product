@@ -148,11 +148,11 @@ async function checkHasJob(businessId, storageId, customerId) {
           projectId: doc.id,
           vehicleId: projectData.vehicleId,
           customerId: projectData.customerId,
-          status: projectData.status
+          isActive: projectData.isActive
         });
       }
       if ((projectData.vehicleId === storageId || projectData.customerId === customerId) && 
-          projectData.status === "active") {
+          projectData.isActive === true) {
         return true;
       }
     }
@@ -571,7 +571,7 @@ export default function StoragePage() {
             storageData.forEach((item) => {
               // Check if this storage item has any active projects
               const itemProjects = allProjects.filter(
-                p => (p.vehicleId === item.id || p.customerId === item.customerId) && p.status === "active"
+                p => (p.vehicleId === item.id || p.customerId === item.customerId) && p.isActive === true
               );
               jobMap[item.id] = itemProjects.length > 0;
               
