@@ -1,7 +1,8 @@
 // ProjectsList.jsx
 // ├── Fetching Jobs using status.js (vehicleId, title, status)
-// ├── Toggle Filter buttons (Active - (boolean), Complete (status), WIP (status)
-// ├── Dropdown Menu => Select Status  ← reads from STATUS_OPTIONS
+// ├── Toggle Filter buttons Active (boolean), Complete (status), WIP (status)
+// ├── Dropdown Menu => Select Status  ← reads from (status) projects, compares against STATUS_OPTIONS to get unique status keys for filtering (Excludes WIP, Complete statuses)
+// ├── Dropdown Menu => Select Mechanic  ← reads from (assignedMechanicName) projects to get unique names for filtering
 // ├── Search Projects Bar (searches title, customerName, carLabel)
 // └── Automatically sorts projects by Active (boolean) and then by most recently updated (updatedAt or createdAt) using toMillis function to normalize timestamps for comparison
 // ══════════════════════════════════════════════════════════════════════════════
@@ -32,71 +33,47 @@ import { Link } from "react-router-dom";
 import { STATUS_OPTIONS, getStatusMeta, statusStyle, isWIPStatus, isCompleteStatus } from "../lib/status";
 
 
-
-// Used to normalize the status string to determine what stage a project is at. Can be updated to include more or less values.
-function normalizeStatus(statusValue) {
-  if (typeof statusValue === "number") {
-    return statusValue;
-  }
-
-  return String(statusValue || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ");
-}
-
-// Checks to see if project is active (Boolean) true or false.
+// Utility functions
 function isActiveProject(project) {
-  return project.isActive === true ? true : false;
+  return project.isActive === true;
 }
 
-//Converts Timestamps to normalized value in milliseconds for easier comparison and sorting
-function toMillis(value) {
-  if (value == null) return 0;
-
-  if (typeof value.toMillis === "function") {
-    return value.toMillis();
-  }
-
-  if (value instanceof Date) {
-    return value.getTime();
-  }
-
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) return 0;
-    return Math.abs(value) < 1e12 ? value * 1000 : value;
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return 0;
-
-    const numericValue = Number(trimmed);
-    if (Number.isFinite(numericValue)) {
-      return Math.abs(numericValue) < 1e12
-        ? numericValue * 1000
-        : numericValue;
-    }
-
-    const parsed = Date.parse(trimmed);
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-
-  if (typeof value === "object") {
-    const seconds = Number(value.seconds);
-    if (Number.isFinite(seconds)) {
-      const nanoseconds = Number(value.nanoseconds ?? 0);
-      return seconds * 1000 + Math.floor((Number.isFinite(nanoseconds) ? nanoseconds : 0) / 1e6);
-    }
-  }
-
-  return 0;
-}
-
-// Uses toMillis to compare the last updated timestamp of projects
+// Uses toMillis to normalize timestamp to ms then compare the last updated timestamps of projects
 function updatedMillisForProject(project) {
+  const toMillis = (value) => {
+    if (value == null) return 0;
+    if (typeof value.toMillis === "function") return value.toMillis();
+    if (value instanceof Date) return value.getTime();
+    if (typeof value === "number") return Math.abs(value) < 1e12 ? value * 1000 : value; // Treat numbers < 1 trillion as seconds, convert to milliseconds
+    if (typeof value === "string") {
+      const parsed = Date.parse(value);
+      return Number.isNaN(parsed) ? 0 : parsed; // If string can be parsed as date, return timestamp
+    }
+    if (typeof value === "object") {
+      const seconds = Number(value.seconds);
+      const nanoseconds = Number(value.nanoseconds ?? 0);
+      return seconds * 1000 + Math.floor(nanoseconds / 1e6);
+    }
+    return 0;
+  }
   return toMillis(project.updatedAt) || toMillis(project.createdAt);
+}
+
+// Reusable Dropdown component for status and mechanic filters
+function Dropdown({ value, onChange, options, className }) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={className}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 function ProjectRow({ project }) {
@@ -148,7 +125,8 @@ export default function ProjectsList({
   showFilters = true,
   showSearch = true,
   searchInputClassName,
-}) {
+  }) {
+  
   const [filters, setFilters] = useState({
     active: false,
     complete: false,
@@ -156,57 +134,54 @@ export default function ProjectsList({
   });
 
   const [statusFilter, setStatusFilter] = useState("all");
-
+  const [mechanicFilter, setMechanicFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  // Toggles the boolean state of the specified filter key (active, complete, WIP) when the corresponding button is clicked
   const toggleFilter = (key) => {
-    setFilters((previous) => ({
-      ...previous,
-      [key]: !previous[key],
-    }));
+    setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const filteredProjects = useMemo(() => {
-    let result = [...projects];
-    const hasActiveFilters = filters.active || filters.complete || filters.WIP;
+  // Generate unique mechanic names from projects for the mechanic filter dropdown
+  const uniqueMechanics = useMemo(() => {
+    const mechanics = new Set();
+    projects.forEach((project) => {
+    (project.assignedMechanicName || []).forEach((name) => mechanics.add(name));
+  });
+  return ["all", ...mechanics];
+  }, [projects]);
 
-    if (hasActiveFilters) {
-      result = result.filter((project) => {
-        const matchesActive = filters.active && project.isActive === true;
-        const matchesComplete = filters.complete && isCompleteStatus(project.status);
-        const matchesWIP = filters.WIP && isWIPStatus(project.status);
-
-        return matchesActive || matchesComplete || matchesWIP;
-      });
-    }
-
-    if (statusFilter != "all") {
-      result = result.filter((project) => getStatusMeta(project.status).key === statusFilter);
-    }
-
-    if (search.trim()) {
+  // Applies all filters and search term to determine if a project should be rendered
+  const applyFilters = (project) => {
+    if(filters.active && !isActiveProject(project)) return false;
+    if(filters.complete && !isCompleteStatus(project.status)) return false;
+    if(filters.WIP && !isWIPStatus(project.status)) return false;
+    if(statusFilter !== "all" && getStatusMeta(project.status).key !== statusFilter) return false;
+    if(mechanicFilter !== "all" && !project.assignedMechanicName?.includes(mechanicFilter)) return false;
+    if(search.trim()) {
       const term = search.toLowerCase();
-      result = result.filter(
-        (project) =>
-          (project.title && project.title.toLowerCase().includes(term)) ||
-          (project.customerName && project.customerName.toLowerCase().includes(term)) ||
-          (project.carLabel && project.carLabel.toLowerCase().includes(term)),
-      );
+      if(
+        !(
+          project.title?.toLowerCase().includes(term) ||
+          project.customerName?.toLowerCase().includes(term) ||
+          project.carLabel?.toLowerCase().includes(term)
+        )
+      ) {
+        return false;
+      }
     }
+    return true;
+  };
 
-    result.sort((projectA, projectB) => {
+  // Generate filtered and sorted projects based on active filters, status filter, mechanic filter, and search term
+  const filteredProjects = useMemo(() => {
+    return projects.filter(applyFilters).sort((projectA, projectB) => {
       const activityA = isActiveProject(projectA) ? 1 : 0;
       const activityB = isActiveProject(projectB) ? 1 : 0;
-
-      if (activityA !== activityB) {
-        return activityB - activityA;
-      }
-
-      return updatedMillisForProject(projectB) - updatedMillisForProject(projectA);
+      if(activityA !== activityB) return activityB - activityA; // Active projects first
+      return updatedMillisForProject(projectB) - updatedMillisForProject(projectA); // Then by most recently updated
     });
-
-    return result;
-  }, [projects, filters, search, statusFilter]);
+  }, [projects, filters, statusFilter, mechanicFilter, search]);
 
   return (
     <div className="w-full">
@@ -218,55 +193,44 @@ export default function ProjectsList({
 
       {!loading && projects.length > 0 && showFilters && (
         <div className="mb-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => toggleFilter("active")}
-            aria-pressed={filters.active}
-            className={`!h-10 !px-4 !py-0 !rounded-lg !text-sm !font-medium !border !transition-all !duration-150 !outline-none focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[#2F6FED] focus-visible:!ring-offset-0 ${filters.active
-              ? "!bg-[#37352F] !text-white !border-[#37352F] hover:!bg-[#37352F]"
-              : "!bg-white !text-[#37352F] !border-[#E0E0E0] hover:!bg-[#F7F6F3]"
+          {["active", "complete", "WIP"].map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => toggleFilter(key)}
+              aria-pressed={filters[key]}
+              className={`!h-10 !px-4 !py-0 !rounded-lg !text-sm !font-medium !border !transition-all !duration-150 !outline-none focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[#2F6FED] focus-visible:!ring-offset-0 ${
+                filters[key]
+                  ? "!bg-[#37352F] !text-white !border-[#37352F] hover:!bg-[#37352F]"
+                  : "!bg-white !text-[#37352F] !border-[#E0E0E0] hover:!bg-[#F7F6F3]"
               }`}
-          >
-            Active
-          </button>
+            >
+              {key.charAt(0).toUpperCase() + key.slice(1)}
+            </button>
+          ))}
 
-          <button
-            type="button"
-            onClick={() => toggleFilter("complete")}
-            aria-pressed={filters.complete}
-            className={`!h-10 !px-4 !py-0 !rounded-lg !text-sm !font-medium !border !transition-all !duration-150 !outline-none focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[#2F6FED] focus-visible:!ring-offset-0 ${filters.complete
-              ? "!bg-[#37352F] !text-white !border-[#37352F] hover:!bg-[#37352F]"
-              : "!bg-white !text-[#37352F] !border-[#E0E0E0] hover:!bg-[#F7F6F3]"
-              }`}
-          >
-            Complete
-          </button>
-
-          <button
-            type="button"
-            onClick={() => toggleFilter("WIP")}
-            aria-pressed={filters.WIP}
-            className={`!h-10 !px-4 !py-0 !rounded-lg !text-sm !font-medium !border !transition-all !duration-150 !outline-none focus-visible:!outline-none focus-visible:!ring-2 focus-visible:!ring-[#2F6FED] focus-visible:!ring-offset-0 ${filters.WIP
-              ? "!bg-[#37352F] !text-white !border-[#37352F] hover:!bg-[#37352F]"
-              : "!bg-white !text-[#37352F] !border-[#E0E0E0] hover:!bg-[#F7F6F3]"
-              }`}
-          >
-            WIP
-          </button>
-
-          <select
+          <Dropdown
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "Select" },
+              ...STATUS_OPTIONS.filter((status) => status.key !== "wip" && status.key !== "complete").map((status) => ({
+                value: status.key,
+                label: status.label,
+              })),
+            ]}
             className="h-10 rounded-lg border border-[#E0E0E0] bg-white px-3 text-sm text-[#37352F] outline-none focus:border-[#37352F]"
-          >
-            <option value="all">Select</option>
-            {STATUS_OPTIONS.filter(status => status.key !== "wip" && status.key !== "complete").map((status) => (
-              <option key={status.key} value={status.key}>
-                {status.label}
-              </option> // Options exclude WIP and Complete since they are already covered by toggle buttons
-            ))}
-          </select>
+          />
 
+          <Dropdown
+            value={mechanicFilter}
+            onChange={setMechanicFilter}
+            options={uniqueMechanics.map((mechanic) => ({
+              value: mechanic,
+              label: mechanic === "all" ? "All Mechanics" : mechanic,
+            }))}
+            className="h-10 rounded-lg border border-[#E0E0E0] bg-white px-3 text-sm text-[#37352F] outline-none focus:border-[#37352F]"
+          />
         </div>
       )}
 
@@ -295,7 +259,7 @@ export default function ProjectsList({
       ) : (
         <div className="flex flex-col w-full bg-white border border-[#E0E0E0] rounded-xl shadow-sm overflow-hidden">
           <div className="flex items-center w-full px-6 py-3 bg-[#F7F7F5] border-b border-[#E0E0E0] text-xs font-semibold text-[#787774] uppercase tracking-wider">
-            <span className="w-32 shrink-0">Car Reg</span>
+            <span className="w-32 shrink-0">Car Make</span>
             <span className="flex-1">Job Title</span>
             <span className="w-40 shrink-0">Status</span>
             <span className="w-36 shrink-0">Active</span>
