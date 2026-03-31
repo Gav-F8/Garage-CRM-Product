@@ -19,7 +19,7 @@
 //   customerName: string | null
 //   lastNoteAt: Timestamp | null
 //   lastNoteText: string | null
-//   outHouse?: boolean | null
+//   isActive: boolean | null
 //   priority: string | null
 //   status: string | null
 //   title: string
@@ -46,10 +46,9 @@ function normalizeStatus(statusValue) {
     .replace(/\s+/g, " ");
 }
 
-// Checks to see if project has outHouse? (Boolean) true or false.
-function isInHouseProject(project) {
-  return project.outHouse === true ? false : true;
-  //Return project.isActive == true ? true : false; // will be implemented later to check Active status as aboolean
+// Checks to see if project is active (Boolean) true or false.
+function isActiveProject(project) {
+  return project.isActive === true ? true : false;
 }
 
 //Converts Timestamps to normalized value in milliseconds for easier comparison and sorting
@@ -102,7 +101,7 @@ function updatedMillisForProject(project) {
 
 function ProjectRow({ project }) {
   const { label, style } = statusStyle(project.status);
-  const inHouse = isInHouseProject(project);
+  const isProjectActive = isActiveProject(project);
 
   return (
     <Link
@@ -129,11 +128,11 @@ function ProjectRow({ project }) {
 
         <div className="flex items-center gap-2 w-36 shrink-0">
           <div
-            className={`w-3.5 h-3.5 rounded-sm border border-[#E0E0E0] ${inHouse ? "bg-[#37352F]" : "bg-white"}`}
-            title={inHouse ? "Active" : "Inactive"}
+            className={`w-3.5 h-3.5 rounded-sm border border-[#E0E0E0] ${isProjectActive ? "bg-[#37352F]" : "bg-white"}`}
+            title={isProjectActive ? "Active" : "Inactive"}
           />
           <span className="text-sm text-[#787774]">
-            {inHouse ? "Active" : "Inactive"}
+            {isProjectActive ? "Active" : "Inactive"}
           </span>
         </div>
       </div>
@@ -173,8 +172,7 @@ export default function ProjectsList({
 
     if (hasActiveFilters) {
       result = result.filter((project) => {
-        const matchesActive = filters.active && isInHouseProject(project);
-        // const matchesActive = filters.active && project.isActive === true; // will be implemented later to check Active status as a boolean
+        const matchesActive = filters.active && project.isActive === true;
         const matchesComplete = filters.complete && isCompleteStatus(project.status);
         const matchesWIP = filters.WIP && isWIPStatus(project.status);
 
@@ -182,7 +180,7 @@ export default function ProjectsList({
       });
     }
 
-    if(statusFilter != "all") {
+    if (statusFilter != "all") {
       result = result.filter((project) => getStatusMeta(project.status).key === statusFilter);
     }
 
@@ -197,8 +195,8 @@ export default function ProjectsList({
     }
 
     result.sort((projectA, projectB) => {
-      const activityA = isInHouseProject(projectA) ? 1 : 0;
-      const activityB = isInHouseProject(projectB) ? 1 : 0;
+      const activityA = isActiveProject(projectA) ? 1 : 0;
+      const activityB = isActiveProject(projectB) ? 1 : 0;
 
       if (activityA !== activityB) {
         return activityB - activityA;
@@ -211,7 +209,7 @@ export default function ProjectsList({
   }, [projects, filters, search, statusFilter]);
 
   return (
-    <div>
+    <div className="w-full">
       <p className="mb-4 text-sm text-[#787774]">
         {loading
           ? "Loading..."
@@ -262,10 +260,10 @@ export default function ProjectsList({
             className="h-10 rounded-lg border border-[#E0E0E0] bg-white px-3 text-sm text-[#37352F] outline-none focus:border-[#37352F]"
           >
             <option value="all">Select</option>
-            {STATUS_OPTIONS.map((status) => (
+            {STATUS_OPTIONS.filter(status => status.key !== "wip" && status.key !== "complete").map((status) => (
               <option key={status.key} value={status.key}>
                 {status.label}
-              </option>
+              </option> // Options exclude WIP and Complete since they are already covered by toggle buttons
             ))}
           </select>
 
@@ -273,7 +271,7 @@ export default function ProjectsList({
       )}
 
       {!loading && projects.length > 0 && showSearch && (
-        <div className="mb-6">
+        <div className="mb-6 w-full">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}

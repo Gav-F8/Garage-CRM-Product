@@ -53,7 +53,7 @@ export const notionClasses = {
   pageContainer: `${notionTheme.layout.page} ${notionTheme.colors.bg} ${notionTheme.colors.text.primary}`,
   cardContainer: `${notionTheme.layout.contentWidth} space-y-8 ${notionTheme.animation.fadeIn}`,
   card: `${notionTheme.layout.card} ${notionTheme.colors.border}`,
-  input: `pl-9 h-10 ${notionTheme.colors.input.bg} ${notionTheme.colors.input.border} ${notionTheme.colors.text.primary} placeholder:${notionTheme.colors.text.placeholder} focus-visible:ring-1 ${notionTheme.colors.input.focus} focus-visible:border-[#37352F] rounded-lg transition-all`,
+  input: `w-full pl-9 h-10 ${notionTheme.colors.input.bg} ${notionTheme.colors.input.border} ${notionTheme.colors.text.primary} placeholder:${notionTheme.colors.text.placeholder} focus-visible:ring-1 ${notionTheme.colors.input.focus} focus-visible:border-[#37352F] rounded-lg transition-all`,
   button: `w-full h-10 ${notionTheme.colors.button.bg} ${notionTheme.colors.button.hover} ${notionTheme.colors.button.text} font-medium rounded-lg shadow-sm transition-all hover:shadow-md disabled:opacity-70 disabled:cursor-not-allowed`,
   label: `text-sm font-medium ${notionTheme.colors.text.primary}`,
   link: `font-medium ${notionTheme.colors.text.primary} hover:underline transition-colors`,
