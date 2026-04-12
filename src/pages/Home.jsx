@@ -26,13 +26,9 @@ export default function HomePage() {
         const user = auth.currentUser;
         if (!user) return;
 
-        // Get business ID
-        const businessSnap = await getDocs(
-          query(collection(db, "businesses"), where("uid", "==", user.uid))
-        );
-        if (businessSnap.empty) return;
-
-        const businessId = businessSnap.docs[0].id;
+        // Get business ID from localStorage
+        const businessId = localStorage.getItem("ccgBusinessId");
+        if (!businessId) return;
 
         // Fetch customers count
         const customersSnap = await getDocs(
