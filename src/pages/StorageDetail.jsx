@@ -7,18 +7,9 @@ import {
   getDocs,
   collection,
   query,
-  where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
 
 async function fetchStorageDetail(businessId, storageId) {
   try {
@@ -48,7 +39,7 @@ async function fetchCustomerName(businessId, customerId) {
   }
 }
 
-async function fetchRelatedProjects(businessId, storageId, customerId) {
+async function fetchRelatedProjects(businessId, storageId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
     const q = query(projectsRef);
@@ -57,7 +48,8 @@ async function fetchRelatedProjects(businessId, storageId, customerId) {
     const relatedProjects = [];
     for (const doc of snap.docs) {
       const projectData = doc.data();
-      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+      // Check if project is related to this storage using carId field
+      if (projectData.carId === storageId) {
         relatedProjects.push({ id: doc.id, ...projectData });
       }
     }
@@ -68,7 +60,7 @@ async function fetchRelatedProjects(businessId, storageId, customerId) {
   }
 }
 
-async function fetchTotalTimeLogs(businessId, storageId, customerId) {
+async function fetchTotalTimeLogs(businessId, storageId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
     const q = query(projectsRef);
@@ -77,7 +69,8 @@ async function fetchTotalTimeLogs(businessId, storageId, customerId) {
     let totalMinutes = 0;
     for (const projectDoc of snap.docs) {
       const projectData = projectDoc.data();
-      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+      // Check if project is related to this storage using carId field
+      if (projectData.carId === storageId) {
         // Fetch TimeLogs for this project
         const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
         const timeLogsSnap = await getDocs(timeLogsRef);
@@ -124,7 +117,7 @@ export default function StorageDetailPage() {
       }
 
       try {
-        const bizId = await fetchBusinessId(user.uid);
+        const bizId = localStorage.getItem("ccgBusinessId");
         if (!bizId) {
           setLoading(false);
           return;
@@ -142,11 +135,11 @@ export default function StorageDetailPage() {
           }
 
           // Fetch related projects
-          const projects = await fetchRelatedProjects(bizId, storageId, storageData.customerId);
+          const projects = await fetchRelatedProjects(bizId, storageId);
           setRelatedProjects(projects);
           
           // Fetch total time logs
-          const logs = await fetchTotalTimeLogs(bizId, storageId, storageData.customerId);
+          const logs = await fetchTotalTimeLogs(bizId, storageId);
           setTimeLogs(logs);
         }
       } catch (error) {

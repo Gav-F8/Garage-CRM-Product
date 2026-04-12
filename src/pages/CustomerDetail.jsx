@@ -7,18 +7,9 @@ import {
   getDocs,
   collection,
   query,
-  where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
 
 async function fetchCustomerDetail(businessId, customerId) {
   try {
@@ -107,8 +98,9 @@ export default function CustomerDetailPage() {
       }
 
       try {
-        const bizId = await fetchBusinessId(user.uid);
+        const bizId = localStorage.getItem("ccgBusinessId");
         if (!bizId) {
+          navigate("/Login");
           setLoading(false);
           return;
         }
@@ -131,7 +123,7 @@ export default function CustomerDetailPage() {
     });
 
     return () => unsubscribe();
-  }, [customerId]);
+  }, [customerId, navigate]);
 
   if (loading) {
     return (

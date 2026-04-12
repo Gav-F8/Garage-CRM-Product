@@ -42,7 +42,6 @@ import {
   serverTimestamp,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
@@ -74,14 +73,6 @@ const BLANK = {
 // ─────────────────────────────────────────────────────────────
 // Firestore Helpers
 // ─────────────────────────────────────────────────────────────
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
 
 async function fetchEmployeeName(businessId, employeeId) {
   try {
@@ -555,7 +546,11 @@ export default function StoragePage() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        const bizId = await fetchBusinessId(user.uid);
+        const bizId = localStorage.getItem("ccgBusinessId");
+        if (!bizId) {
+          navigate("/Login");
+          return;
+        }
         setBusinessId(bizId);
         Promise.all([fetchStorage(bizId), fetchCustomers(bizId)])
           .then(async ([storageData, customerData]) => {
@@ -565,36 +560,22 @@ export default function StoragePage() {
             console.log("customers map:", map);
             setCustomers(map);
             
-            // Fetch all projects once to avoid N+1 queries
-            const allProjectsSnap = await getDocs(
-              collection(db, "businesses", bizId, "Projects")
-            );
-            const allProjects = allProjectsSnap.docs.map(doc => doc.data());
-            
             // Check for jobs and calculate hours for all items in parallel
             const jobMap = {};
             const hoursMap = {};
             
-            storageData.forEach((item) => {
-              // Check if this storage item has any active projects
-              const itemProjects = allProjects.filter(
-                p => (p.vehicleId === item.id || p.customerId === item.customerId) && p.isActive === true
-              );
-              jobMap[item.id] = itemProjects.length > 0;
-              
-              // Calculate total hours from all related projects
-              let totalMinutes = 0;
-              allProjects.forEach((p) => {
-                if (p.vehicleId === item.id || p.customerId === item.customerId) {
-                  // Note: We'd need to fetch TimeLogs for accurate hours
-                  // For now, this is a placeholder - consider fetching TimeLogs separately if needed
-                }
-              });
-              
-              const hours = Math.floor(totalMinutes / 60);
-              const mins = totalMinutes % 60;
-              hoursMap[item.id] = `${hours}h ${mins}m`;
-            });
+            // Process all items and fetch their job status and hours
+            await Promise.all(
+              storageData.map(async (item) => {
+                // Check if this storage item has any active projects
+                const hasJob = await checkHasJob(bizId, item.id, item.customerId);
+                jobMap[item.id] = hasJob;
+                
+                // Get total hours for this storage item
+                const hours = await fetchTotalHours(bizId, item.id, item.customerId);
+                hoursMap[item.id] = hours;
+              })
+            );
             
             setHasJobMap(jobMap);
             setTotalHoursMap(hoursMap);
@@ -605,7 +586,7 @@ export default function StoragePage() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();

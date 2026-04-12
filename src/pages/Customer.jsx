@@ -28,7 +28,6 @@ import {
   serverTimestamp,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
 
 import { notionClasses } from "/src/lib/notion-theme"; 
@@ -68,14 +67,6 @@ async function createCustomer(businessId, data) {
   });
 
   return { id: docRef.id };
-}
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id; 
 }
 
 async function fetchEmployeeName(businessId, employeeId) {
@@ -382,55 +373,42 @@ export default function CreateCustomerPage() {
   }, [navigate]);
 
   useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      const bizId = await fetchBusinessId(user.uid);
-      setBusinessId(bizId);
-      fetchCustomers(bizId)
-        .then(async (customerData) => {
-          setCustomers(customerData);
-          
-          // Fetch all projects once to avoid N+1 queries
-          const allProjectsSnap = await getDocs(
-            collection(db, "businesses", bizId, "Projects")
-          );
-          const allProjects = allProjectsSnap.docs.map(doc => doc.data());
-          
-          // Check for jobs and calculate hours in parallel using cached projects
-          const jobMap = {};
-          const hoursMap = {};
-          
-          customerData.forEach((customer) => {
-            // Check if this customer has any active projects
-            const customerProjects = allProjects.filter(
-              p => p.customerId === customer.id && p.isActive === true
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const bizId = localStorage.getItem("ccgBusinessId");
+        if (!bizId) {
+          navigate("/Login");
+          return;
+        }
+        setBusinessId(bizId);
+        fetchCustomers(bizId)
+          .then(async (customerData) => {
+            setCustomers(customerData);
+
+            // Check for jobs and calculate hours in parallel
+            const jobMap = {};
+            const hoursMap = {};
+
+            await Promise.all(
+              customerData.map(async (customer) => {
+                const hasJob = await checkHasJob(bizId, customer.id);
+                jobMap[customer.id] = hasJob;
+
+                const hours = await fetchTotalHours(bizId, customer.id);
+                hoursMap[customer.id] = hours;
+              })
             );
-            jobMap[customer.id] = customerProjects.length > 0;
-            
-            // Calculate total hours from all related projects
-            let totalMinutes = 0;
-            allProjects.forEach((p) => {
-              if (p.customerId === customer.id) {
-                // Note: For accurate hours, we'd need to fetch TimeLogs
-                // This is currently a placeholder
-              }
-            });
-            
-            const hours = Math.floor(totalMinutes / 60);
-            const mins = totalMinutes % 60;
-            hoursMap[customer.id] = `${hours}h ${mins}m`;
-          });
-          
-          setHasJobMap(jobMap);
-          setTotalHoursMap(hoursMap);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  });
-  return () => unsubscribe();
-}, []);
+
+            setHasJobMap(jobMap);
+            setTotalHoursMap(hoursMap);
+          })
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   // Clear search input after modal closes to prevent autofill
   useEffect(() => {
