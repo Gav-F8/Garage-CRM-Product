@@ -16,6 +16,8 @@ import EmployeeManagement from "./pages/business/EmployeeManagement";
 import AllProjectsPage from "./pages/AllProjectsPage";
 import ProjectDetailsPage from "./pages/ProjectDetailsPage";
 import EditProjectPage from "./pages/EditProjectPage";
+import EditCustomerPage from "./pages/EditCustomerPage";
+import EditCarPage from "./pages/EditCarPage";
 import ProjectCreation from "./pages/Job";
 
 function App() {
@@ -125,10 +127,26 @@ function App() {
           }
         />
         <Route
+          path="/customer/:customerId/edit"
+          element={
+            <ProtectedRoute>
+              <EditCustomerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/jobs/new"
           element={
             <ProtectedRoute>
               <ProjectCreation />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/storage/:storageId/edit"
+          element={
+            <ProtectedRoute>
+              <EditCarPage />
             </ProtectedRoute>
           }
         />

@@ -194,12 +194,21 @@ export default function StorageDetailPage() {
               {storage.plate}
             </p>
           </div>
-          <button
-            onClick={() => navigate("/storage")}
-            className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
-          >
-            ← Back to Storage
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/storage/${storageId}/edit`)}
+              className="h-10 px-4 rounded-lg bg-[#37352F] text-white text-sm font-medium hover:bg-[#474540] transition-all"
+            >
+              Edit
+            </button>
+
+            <button
+              onClick={() => navigate("/storage")}
+              className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+            >
+              ← Back to Storage
+            </button>
+          </div>
         </div>
 
         {/* Storage Details */}
