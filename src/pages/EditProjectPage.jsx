@@ -16,6 +16,7 @@ export default function EditProjectPage() {
   const navigate = useNavigate();
 
   const businessId = localStorage.getItem("ccgBusinessId");
+  const userRole = localStorage.getItem("ccgUserRole");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -220,19 +221,21 @@ export default function EditProjectPage() {
               </button>
             </div>
 
-            <div className="pt-6 mt-6 border-t border-[#E0E0E0]">
-              <h2 className="text-sm font-semibold text-[#C53030] mb-3">
-                Danger Zone
-              </h2>
+            {userRole === "owner" && (
+              <div className="pt-6 mt-6 border-t border-[#E0E0E0]">
+                <h2 className="text-sm font-semibold text-[#C53030] mb-3">
+                  Danger Zone
+                </h2>
 
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="h-11 px-4 rounded-lg bg-[#C53030] hover:bg-[#A12828] text-white text-sm font-medium shadow-sm transition-all"
-              >
-                Delete Project
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="h-11 px-4 rounded-lg bg-[#C53030] hover:bg-[#A12828] text-white text-sm font-medium shadow-sm transition-all"
+                >
+                  Delete Project
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>
