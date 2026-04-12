@@ -71,7 +71,7 @@ export default function JobPage() {
       }
 
       try {
-        const bizId = await fetchBusinessId(user.uid);
+        const bizId = await fetchBusinessId(user.uid) || localStorage.getItem("ccgBusinessId");
         setBusinessId(bizId);
 
         if (!bizId) {

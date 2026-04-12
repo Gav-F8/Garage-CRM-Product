@@ -72,10 +72,12 @@ export function NavigationBar() {
     navigate("/Login");
   };
 
+  const isOwner = userRole === "owner";
+
   const navLinks = [
     { name: "Home", path: "/" },
-    { name: "Customer", path: "/customer" },
-    { name: "Storage", path: "/storage" },
+    ...(isOwner ? [{ name: "Customer", path: "/customer" }] : []),
+    ...(isOwner ? [{ name: "Storage", path: "/storage" }] : []),
     { name: "Jobs", path: "/jobs" },
     { name: "Contact", path: "/contact" },
   ];

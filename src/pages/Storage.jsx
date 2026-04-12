@@ -546,6 +546,13 @@ export default function StoragePage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
+    if (localStorage.getItem("ccgUserRole") !== "owner") {
+      navigate("/Home", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
         const bizId = await fetchBusinessId(user.uid);
