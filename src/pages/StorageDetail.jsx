@@ -111,6 +111,12 @@ export default function StorageDetailPage() {
   const [timeLogs, setTimeLogs] = useState({ totalMinutes: 0, hours: 0, minutes: 0 });
 
   useEffect(() => {
+    if (localStorage.getItem("ccgUserRole") !== "owner") {
+      navigate("/Home", { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
         setLoading(false);

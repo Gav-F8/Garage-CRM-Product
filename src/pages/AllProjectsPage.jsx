@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
@@ -10,11 +10,8 @@ export default function AllProjectsPage() {
     projects,
     loading,
     error,
-    currentRole,
   } = useProjectsForCurrentUser();
 
-  const isOwner = useMemo(() => currentRole === "owner", [currentRole]);
-  
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -49,7 +46,7 @@ export default function AllProjectsPage() {
             </p>
           </div>
 
-          {!loading && projects.length > 0 && isOwner && (
+          {!loading && projects.length > 0 && (
             <Link
               to="/jobs/new"
               className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] !text-white text-sm font-medium shadow-sm transition-all inline-flex items-center justify-center"
@@ -122,14 +119,12 @@ export default function AllProjectsPage() {
         {!loading && projects.length === 0 && (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No Jobs found.</p>
-            {isOwner && (
-              <Link
-                to="/jobs/new"
-                className="inline-flex h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
-              >
-                + New Job
-              </Link>
-            )}
+            <Link
+              to="/jobs/new"
+              className="inline-flex h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+            >
+              + New Job
+            </Link>
           </div>
         )}
       </div>

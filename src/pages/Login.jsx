@@ -65,9 +65,10 @@ export default function LoginPage() {
         const empRef = doc(db, "businesses", bizDoc.id, "Employees", user.uid);
         const empDoc = await getDoc(empRef);
         if (empDoc.exists()) {
-          const empRole = empDoc.data().role;
+          const empData = empDoc.data();
+          const empStatus = empData.status;
 
-          if (empRole === "pendingApproval") {
+          if (empStatus === "pendingApproval") {
             await auth.signOut();
             setError(
               "Your account is pending approval. Please wait for the owner to activate your account.",
@@ -75,10 +76,18 @@ export default function LoginPage() {
             return;
           }
 
-          if (empRole === "rejected") {
+          if (empStatus === "rejected") {
             await auth.signOut();
             setError(
               "Your account request has been declined. Please contact the business owner.",
+            );
+            return;
+          }
+
+          if (empStatus === "suspended") {
+            await auth.signOut();
+            setError(
+              "Your account has been suspended. Please contact the business owner.",
             );
             return;
           }
