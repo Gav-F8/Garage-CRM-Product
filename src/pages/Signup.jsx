@@ -111,8 +111,8 @@ export default function SignupPage() {
           Name: fullName,
           email: user.email,
           phone: "",
-          role: "pendingApproval",
-          status: "active",
+          role: "mechanic",
+          status: "pendingApproval",
           createdAt: timestamp,
           updateAt: timestamp,
         });
