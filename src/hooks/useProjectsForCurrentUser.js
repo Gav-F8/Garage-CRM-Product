@@ -6,7 +6,6 @@ import {
   getDocs,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
 import { auth, db } from "/src/firebase.js";
 
@@ -89,15 +88,9 @@ export function useProjectsForCurrentUser(options = {}) {
 
         setCurrentRole(role);
 
-        if (role === "owner") {
+       if (role === "owner" || role === "mechanic") {
           projectQuery = query(
             collection(db, "businesses", businessId, "Projects"),
-            orderBy("updatedAt", "desc"),
-          );
-        } else if (role === "mechanic") {
-          projectQuery = query(
-            collection(db, "businesses", businessId, "Projects"),
-            where("assignedMechanicId", "array-contains", currentUid),
             orderBy("updatedAt", "desc"),
           );
         } else {

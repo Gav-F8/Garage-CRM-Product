@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { auth, db } from "../firebase";
 import {
@@ -39,6 +39,13 @@ export default function ProjectDetailsPage() {
   const [editMinutes, setEditMinutes] = useState("");
   const [editLogNote, setEditLogNote] = useState("");
   const [editWorkDate, setEditWorkDate] = useState("");
+
+  // Stopwatch state
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timerNote, setTimerNote] = useState("");
+  const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
+  const intervalRef = useRef(null);
 
   const businessId = localStorage.getItem("ccgBusinessId");
 
@@ -138,6 +145,21 @@ export default function ProjectDetailsPage() {
     loadProjectData();
   }, [businessId, projectId]);
 
+  // Stopwatch interval
+  useEffect(() => {
+    if (isTimerRunning) {
+      intervalRef.current = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isTimerRunning]);
+
   async function handleAddNote() {
     const trimmedNote = newNote.trim();
     if (!trimmedNote) return;
@@ -226,6 +248,57 @@ export default function ProjectDetailsPage() {
       setError(err.message || "Failed to add time log.");
     } finally {
       setSavingTimeLog(false);
+    }
+  }
+
+  async function handleSubmitStopwatchLog() {
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) {
+      setError("No authenticated user found.");
+      return;
+    }
+
+    const totalMinutes = Math.max(1, Math.round(timerSeconds / 60));
+
+    if (timerSeconds <= 0) {
+      setError("Timer has no recorded time.");
+      return;
+    }
+
+    setSavingStopwatchLog(true);
+    setError("");
+
+    try {
+      const logsRef = collection(
+        db,
+        "businesses",
+        businessId,
+        "Projects",
+        projectId,
+        "TimeLogs"
+      );
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      await addDoc(logsRef, {
+        EmployeeName: currentEmployee?.Name || "Unknown",
+        Uid: currentUid,
+        minutes: totalMinutes,
+        note: timerNote.trim() || "",
+        workDate: Timestamp.fromDate(today),
+        createdAt: serverTimestamp(),
+      });
+
+      setTimerSeconds(0);
+      setTimerNote("");
+      setIsTimerRunning(false);
+      await loadTimeLogs();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Failed to submit stopwatch time log.");
+    } finally {
+      setSavingStopwatchLog(false);
     }
   }
 
@@ -330,17 +403,27 @@ export default function ProjectDetailsPage() {
   }
 
   function getTotalMinutes() {
-  return timeLogs.reduce((sum, log) => sum + (Number(log.minutes) || 0), 0);
-}
+    return timeLogs.reduce((sum, log) => sum + (Number(log.minutes) || 0), 0);
+  }
 
-function formatTotalMinutes(totalMinutes) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  function formatTotalMinutes(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
 
-  if (hours === 0) return `${minutes} min`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
-}
+    if (hours === 0) return `${minutes} min`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+  }
+
+  function formatTimer(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    return [hrs, mins, secs]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  }
 
   const isOwner = currentEmployee?.role === "owner";
 
@@ -525,9 +608,9 @@ function formatTotalMinutes(totalMinutes) {
                   Time Logs
                 </h2>
 
-               <p className="text-sm text-[#787774] mb-5">
-                Total Logged Time: {formatTotalMinutes(getTotalMinutes())}
-              </p>
+                <p className="text-sm text-[#787774] mb-5">
+                  Total Logged Time: {formatTotalMinutes(getTotalMinutes())}
+                </p>
 
                 <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
                   {timeLogs.length ? (
@@ -581,7 +664,7 @@ function formatTotalMinutes(totalMinutes) {
                           <>
                             <p className="text-sm text-[#37352F] mb-2 break-words whitespace-pre-wrap">
                               <strong>{log.EmployeeName || "Unknown"}</strong> logged{" "}
-                              <strong>{log.minutes || 0}</strong> minutes
+                              <strong>{formatTotalMinutes(Number(log.minutes) || 0)}</strong>
                             </p>
 
                             <div className="flex flex-col gap-1 text-xs text-[#787774] mb-3">
@@ -604,7 +687,7 @@ function formatTotalMinutes(totalMinutes) {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => startEditingLog(log)}
-                                  className="h-9 px-3 rounded-lg border border-[#E0E0E0] text-white text-sm font-medium hover:bg-gray-300"
+                                  className="h-9 px-3 rounded-lg border border-[#E0E0E0] text-white text-sm font-medium hover:bg-[#474540]"
                                 >
                                   Edit
                                 </button>
@@ -625,9 +708,79 @@ function formatTotalMinutes(totalMinutes) {
                   )}
                 </div>
 
+                {/* Stopwatch Section */}
                 <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
                   <h3 className="text-sm font-semibold text-[#37352F] mb-3">
-                    Add Time Log
+                    Live Timer
+                  </h3>
+
+                  <div className="rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] p-4">
+                    <p className="text-3xl font-semibold text-[#37352F] mb-4 tracking-wide">
+                      {formatTimer(timerSeconds)}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {!isTimerRunning && timerSeconds === 0 && (
+                        <button
+                          onClick={() => setIsTimerRunning(true)}
+                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                        >
+                          Start
+                        </button>
+                      )}
+
+                      {isTimerRunning && (
+                        <button
+                          onClick={() => setIsTimerRunning(false)}
+                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                        >
+                          Pause
+                        </button>
+                      )}
+
+                      {!isTimerRunning && timerSeconds > 0 && (
+                        <button
+                          onClick={() => setIsTimerRunning(true)}
+                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                        >
+                          Resume
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setIsTimerRunning(false);
+                          setTimerSeconds(0);
+                          setTimerNote("");
+                        }}
+                        className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-white  text-sm font-medium hover:bg-[#474540]"
+                      >
+                        Reset
+                      </button>
+                    </div>
+
+                    <textarea
+                      value={timerNote}
+                      onChange={(e) => setTimerNote(e.target.value)}
+                      rows={3}
+                      placeholder="Optional note about the work done..."
+                      className="w-full px-3 py-2 text-sm text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] transition-all resize-none"
+                    />
+
+                    <button
+                      onClick={handleSubmitStopwatchLog}
+                      disabled={savingStopwatchLog || timerSeconds <= 0}
+                      className="mt-3 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+                    >
+                      {savingStopwatchLog ? "Submitting..." : "Submit Timer Log"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Manual Fallback Section */}
+                <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
+                  <h3 className="text-sm font-semibold text-[#37352F] mb-3">
+                    Manual Time Log
                   </h3>
 
                   <div className="space-y-3">
@@ -660,7 +813,7 @@ function formatTotalMinutes(totalMinutes) {
                       disabled={savingTimeLog}
                       className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
                     >
-                      {savingTimeLog ? "Saving..." : "Add Time Log"}
+                      {savingTimeLog ? "Saving..." : "Add Manual Time Log"}
                     </button>
                   </div>
                 </div>
