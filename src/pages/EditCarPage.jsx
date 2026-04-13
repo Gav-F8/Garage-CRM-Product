@@ -197,11 +197,21 @@ export default function EditCarPage() {
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">
-              <button type="submit" disabled={saving} className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 disabled:opacity-50"
+              >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
 
-              <button type="button" onClick={() => navigate(`/storage/${storageId}`)} className="h-11 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all">Cancel</button>
+              <button
+                type="button"
+                onClick={() => navigate(`/storage/${storageId}`)}
+                className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200"
+              >
+                Cancel
+              </button>
             </div>
 
             {userRole === "owner" && (

@@ -103,11 +103,7 @@ export default function StorageDetailPage() {
   const [loading, setLoading] = useState(true);
   const [timeLogs, setTimeLogs] = useState({ totalMinutes: 0, hours: 0, minutes: 0 });
 
-  useEffect(() => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
-      navigate("/Home", { replace: true });
-    }
-  }, [navigate]);
+  // Allow access to storage details for mechanics and other roles.
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -170,7 +166,7 @@ export default function StorageDetailPage() {
         <div className={notionClasses.dashboardContainer}>
           <p className="text-sm text-[#C53030]">Storage not found</p>
           <button
-            onClick={() => navigate("/storage")}
+            onClick={() => navigate("/Storage")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
             Back to Storage
@@ -197,14 +193,14 @@ export default function StorageDetailPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/storage/${storageId}/edit`)}
-              className="h-10 px-4 rounded-lg bg-[#37352F] text-white text-sm font-medium hover:bg-[#474540] transition-all"
+              className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
             >
               Edit
             </button>
 
             <button
-              onClick={() => navigate("/storage")}
-              className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+              onClick={() => navigate("/Storage")}
+              className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
             >
               ← Back to Storage
             </button>
