@@ -210,7 +210,7 @@ function CreateButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+      className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
     >
       + New Customer
     </button>
@@ -331,7 +331,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="h-11 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
+            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
           >
             Cancel
           </button>
@@ -339,7 +339,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
           >
             {saving ? "Saving..." : "Create"}
           </button>
@@ -365,12 +365,7 @@ export default function CreateCustomerPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
-      navigate("/Home", { replace: true });
-      return;
-    }
-  }, [navigate]);
+  // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -497,7 +492,7 @@ export default function CreateCustomerPage() {
         ) : (
           <>
             {/* Items Per Page and Total Count */}
-            <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
                 Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> customers
               </div>
@@ -516,7 +511,7 @@ export default function CreateCustomerPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden border border-[#E0E0E0] bg-white shadow-sm">
+            <div className="overflow-hidden border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
               <table className="min-w-full">
                 <thead>
                   <tr>

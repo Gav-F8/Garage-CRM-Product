@@ -239,7 +239,7 @@ function CreateButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+  className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
     >
       + New Vehicle
     </button>
@@ -380,7 +380,7 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
       {/* VIN */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-[#37352F]">VIN (optional)</label>
-        <div className="flex gap-2">
+          <div className="flex gap-2">
           <input
             placeholder="17-character VIN"
             value={form.vin}
@@ -389,7 +389,7 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
           />
           <button
             onClick={decodeVin}
-            className="px-4 py-2 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all whitespace-nowrap"
+            className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
           >
             Decode VIN
           </button>
@@ -503,14 +503,14 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
       <div className="flex justify-end gap-3 pt-2">
         <button
           onClick={onClose}
-          className="h-12 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
+          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -536,12 +536,7 @@ export default function StoragePage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
-      navigate("/Home", { replace: true });
-      return;
-    }
-  }, [navigate]);
+  // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -657,7 +652,7 @@ export default function StoragePage() {
         ) : (
           <>
             {/* Items Per Page and Total Count */}
-            <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
                 Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> vehicles
               </div>
@@ -676,7 +671,7 @@ export default function StoragePage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden border border-[#E0E0E0] bg-white shadow-sm">
+            <div className="overflow-hidden border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
               <table className="min-w-full">
                 <thead>
                   <tr>
