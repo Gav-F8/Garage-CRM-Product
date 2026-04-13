@@ -49,7 +49,7 @@ export default function AllProjectsPage() {
           {!loading && projects.length > 0 && (
             <Link
               to="/jobs/new"
-              className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] !text-white text-sm font-medium shadow-sm transition-all inline-flex items-center justify-center"
+              className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] !text-white text-sm font-medium shadow-sm transition-all inline-flex items-center justify-center"
             >
               + New Job
             </Link>

@@ -7,18 +7,9 @@ import {
   getDocs,
   collection,
   query,
-  where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
 
 async function fetchCustomerDetail(businessId, customerId) {
   try {
@@ -93,11 +84,7 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [timeLogs, setTimeLogs] = useState({ totalMinutes: 0, hours: 0, minutes: 0 });
 
-  useEffect(() => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
-      navigate("/Home", { replace: true });
-    }
-  }, [navigate]);
+  // Allow access to customer details for mechanics and other roles.
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -107,8 +94,9 @@ export default function CustomerDetailPage() {
       }
 
       try {
-        const bizId = await fetchBusinessId(user.uid);
+        const bizId = localStorage.getItem("ccgBusinessId");
         if (!bizId) {
+          navigate("/Login");
           setLoading(false);
           return;
         }
@@ -131,7 +119,7 @@ export default function CustomerDetailPage() {
     });
 
     return () => unsubscribe();
-  }, [customerId]);
+  }, [customerId, navigate]);
 
   if (loading) {
     return (
@@ -151,7 +139,7 @@ export default function CustomerDetailPage() {
         <div className={notionClasses.dashboardContainer}>
           <p className="text-sm text-[#C53030]">Customer not found</p>
           <button
-            onClick={() => navigate("/customer")}
+            onClick={() => navigate("/Customer")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
             Back to Customers
@@ -174,12 +162,23 @@ export default function CustomerDetailPage() {
               Customer Details
             </p>
           </div>
-          <button
-            onClick={() => navigate("/customer")}
-            className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
-          >
-            ← Back to Customers
-          </button>
+          <div className="flex items-center gap-3">
+            {localStorage.getItem("ccgUserRole") === "owner" && (
+              <button
+                onClick={() => navigate(`/customer/${customerId}/edit`)}
+                className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+              >
+                Edit
+              </button>
+            )}
+
+            <button
+              onClick={() => navigate("/Customer")}
+              className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+            >
+              ← Back to Customers
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fadeIn">

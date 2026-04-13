@@ -28,7 +28,6 @@ import {
   serverTimestamp,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
 
 import { notionClasses } from "/src/lib/notion-theme"; 
@@ -68,14 +67,6 @@ async function createCustomer(businessId, data) {
   });
 
   return { id: docRef.id };
-}
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id; 
 }
 
 async function fetchEmployeeName(businessId, employeeId) {
@@ -219,7 +210,7 @@ function CreateButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+      className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
     >
       + New Customer
     </button>
@@ -340,7 +331,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="h-11 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
+            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
           >
             Cancel
           </button>
@@ -348,7 +339,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
           >
             {saving ? "Saving..." : "Create"}
           </button>
@@ -374,63 +365,45 @@ export default function CreateCustomerPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
-      navigate("/Home", { replace: true });
-      return;
-    }
-  }, [navigate]);
+  // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
 
   useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged(async (user) => {
-    if (user) {
-      const bizId = await fetchBusinessId(user.uid);
-      setBusinessId(bizId);
-      fetchCustomers(bizId)
-        .then(async (customerData) => {
-          setCustomers(customerData);
-          
-          // Fetch all projects once to avoid N+1 queries
-          const allProjectsSnap = await getDocs(
-            collection(db, "businesses", bizId, "Projects")
-          );
-          const allProjects = allProjectsSnap.docs.map(doc => doc.data());
-          
-          // Check for jobs and calculate hours in parallel using cached projects
-          const jobMap = {};
-          const hoursMap = {};
-          
-          customerData.forEach((customer) => {
-            // Check if this customer has any active projects
-            const customerProjects = allProjects.filter(
-              p => p.customerId === customer.id && p.isActive === true
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const bizId = localStorage.getItem("ccgBusinessId");
+        if (!bizId) {
+          navigate("/Login");
+          return;
+        }
+        setBusinessId(bizId);
+        fetchCustomers(bizId)
+          .then(async (customerData) => {
+            setCustomers(customerData);
+
+            // Check for jobs and calculate hours in parallel
+            const jobMap = {};
+            const hoursMap = {};
+
+            await Promise.all(
+              customerData.map(async (customer) => {
+                const hasJob = await checkHasJob(bizId, customer.id);
+                jobMap[customer.id] = hasJob;
+
+                const hours = await fetchTotalHours(bizId, customer.id);
+                hoursMap[customer.id] = hours;
+              })
             );
-            jobMap[customer.id] = customerProjects.length > 0;
-            
-            // Calculate total hours from all related projects
-            let totalMinutes = 0;
-            allProjects.forEach((p) => {
-              if (p.customerId === customer.id) {
-                // Note: For accurate hours, we'd need to fetch TimeLogs
-                // This is currently a placeholder
-              }
-            });
-            
-            const hours = Math.floor(totalMinutes / 60);
-            const mins = totalMinutes % 60;
-            hoursMap[customer.id] = `${hours}h ${mins}m`;
-          });
-          
-          setHasJobMap(jobMap);
-          setTotalHoursMap(hoursMap);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  });
-  return () => unsubscribe();
-}, []);
+
+            setHasJobMap(jobMap);
+            setTotalHoursMap(hoursMap);
+          })
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [navigate]);
 
   // Clear search input after modal closes to prevent autofill
   useEffect(() => {
@@ -519,7 +492,7 @@ export default function CreateCustomerPage() {
         ) : (
           <>
             {/* Items Per Page and Total Count */}
-            <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
                 Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> customers
               </div>
@@ -538,7 +511,7 @@ export default function CreateCustomerPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden border border-[#E0E0E0] bg-white shadow-sm">
+            <div className="overflow-hidden border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
               <table className="min-w-full">
                 <thead>
                   <tr>

@@ -42,7 +42,6 @@ import {
   serverTimestamp,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
@@ -74,14 +73,6 @@ const BLANK = {
 // ─────────────────────────────────────────────────────────────
 // Firestore Helpers
 // ─────────────────────────────────────────────────────────────
-
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid))
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
 
 async function fetchEmployeeName(businessId, employeeId) {
   try {
@@ -248,7 +239,7 @@ function CreateButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+  className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
     >
       + New Vehicle
     </button>
@@ -389,7 +380,7 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
       {/* VIN */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-[#37352F]">VIN (optional)</label>
-        <div className="flex gap-2">
+          <div className="flex gap-2">
           <input
             placeholder="17-character VIN"
             value={form.vin}
@@ -398,7 +389,7 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
           />
           <button
             onClick={decodeVin}
-            className="px-4 py-2 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all whitespace-nowrap"
+            className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
           >
             Decode VIN
           </button>
@@ -512,14 +503,14 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
       <div className="flex justify-end gap-3 pt-2">
         <button
           onClick={onClose}
-          className="h-12 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
+          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="h-12 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -545,17 +536,16 @@ export default function StoragePage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
-      navigate("/Home", { replace: true });
-      return;
-    }
-  }, [navigate]);
+  // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
-        const bizId = await fetchBusinessId(user.uid);
+        const bizId = localStorage.getItem("ccgBusinessId");
+        if (!bizId) {
+          navigate("/Login");
+          return;
+        }
         setBusinessId(bizId);
         Promise.all([fetchStorage(bizId), fetchCustomers(bizId)])
           .then(async ([storageData, customerData]) => {
@@ -565,36 +555,22 @@ export default function StoragePage() {
             console.log("customers map:", map);
             setCustomers(map);
             
-            // Fetch all projects once to avoid N+1 queries
-            const allProjectsSnap = await getDocs(
-              collection(db, "businesses", bizId, "Projects")
-            );
-            const allProjects = allProjectsSnap.docs.map(doc => doc.data());
-            
             // Check for jobs and calculate hours for all items in parallel
             const jobMap = {};
             const hoursMap = {};
             
-            storageData.forEach((item) => {
-              // Check if this storage item has any active projects
-              const itemProjects = allProjects.filter(
-                p => (p.vehicleId === item.id || p.customerId === item.customerId) && p.isActive === true
-              );
-              jobMap[item.id] = itemProjects.length > 0;
-              
-              // Calculate total hours from all related projects
-              let totalMinutes = 0;
-              allProjects.forEach((p) => {
-                if (p.vehicleId === item.id || p.customerId === item.customerId) {
-                  // Note: We'd need to fetch TimeLogs for accurate hours
-                  // For now, this is a placeholder - consider fetching TimeLogs separately if needed
-                }
-              });
-              
-              const hours = Math.floor(totalMinutes / 60);
-              const mins = totalMinutes % 60;
-              hoursMap[item.id] = `${hours}h ${mins}m`;
-            });
+            // Process all items and fetch their job status and hours
+            await Promise.all(
+              storageData.map(async (item) => {
+                // Check if this storage item has any active projects
+                const hasJob = await checkHasJob(bizId, item.id, item.customerId);
+                jobMap[item.id] = hasJob;
+                
+                // Get total hours for this storage item
+                const hours = await fetchTotalHours(bizId, item.id, item.customerId);
+                hoursMap[item.id] = hours;
+              })
+            );
             
             setHasJobMap(jobMap);
             setTotalHoursMap(hoursMap);
@@ -605,7 +581,7 @@ export default function StoragePage() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -676,7 +652,7 @@ export default function StoragePage() {
         ) : (
           <>
             {/* Items Per Page and Total Count */}
-            <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
                 Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> vehicles
               </div>
@@ -695,7 +671,7 @@ export default function StoragePage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden border border-[#E0E0E0] bg-white shadow-sm">
+            <div className="overflow-hidden border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
               <table className="min-w-full">
                 <thead>
                   <tr>

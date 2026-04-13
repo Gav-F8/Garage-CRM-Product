@@ -76,8 +76,11 @@ export function NavigationBar() {
 
   const navLinks = [
     { name: "Home", path: "/" },
-    ...(isOwner ? [{ name: "Customer", path: "/customer" }] : []),
-    ...(isOwner ? [{ name: "Storage", path: "/storage" }] : []),
+    // owner-only variants kept for future if needed
+    // ...(isOwner ? [{ name: "Customer", path: "/Customer" }] : []),
+    // ...(isOwner ? [{ name: "Storage", path: "/Storage" }] : []),
+    { name: "Customer", path: "/Customer" },
+    { name: "Storage", path: "/Storage" },
     { name: "Jobs", path: "/jobs" },
     { name: "Contact", path: "/contact" },
   ];
@@ -137,7 +140,7 @@ export function NavigationBar() {
                 </span>
                 <button
                   onClick={handleSignOut}
-                  className="px-3 py-1.5 rounded-md text-sm font-medium text-[#787774] hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
+                  className="px-3 py-1.5 rounded-md text-sm font-medium text-white hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
                 >
                   Sign out
                 </button>
