@@ -21,6 +21,7 @@ export default function ProjectDetailsPage() {
   const { projectId } = useParams();
 
   const [project, setProject] = useState(null);
+  const [carDetails, setCarDetails] = useState(null);
   const [notes, setNotes] = useState([]);
   const [timeLogs, setTimeLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +41,6 @@ export default function ProjectDetailsPage() {
   const [editLogNote, setEditLogNote] = useState("");
   const [editWorkDate, setEditWorkDate] = useState("");
 
-  // Stopwatch state
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [timerNote, setTimerNote] = useState("");
@@ -110,7 +110,13 @@ export default function ProjectDetailsPage() {
           return;
         }
 
-        const employeeRef = doc(db, "businesses", businessId, "Employees", currentUid);
+        const employeeRef = doc(
+          db,
+          "businesses",
+          businessId,
+          "Employees",
+          currentUid
+        );
         const employeeSnap = await getDoc(employeeRef);
 
         if (!employeeSnap.exists()) {
@@ -130,7 +136,28 @@ export default function ProjectDetailsPage() {
           return;
         }
 
-        setProject({ id: projectSnap.id, ...projectSnap.data() });
+        const projectData = { id: projectSnap.id, ...projectSnap.data() };
+        setProject(projectData);
+
+          if (projectData.carId) {
+          const carRef = doc(
+            db,
+            "businesses",
+            businessId,
+            "storage",
+            projectData.carId
+          );
+
+          const carSnap = await getDoc(carRef);
+
+          if (carSnap.exists()) {
+            setCarDetails({ id: carSnap.id, ...carSnap.data() });
+          } else {
+            setCarDetails(null);
+          }
+        } else {
+          setCarDetails(null);
+        }
 
         await loadNotes();
         await loadTimeLogs();
@@ -145,7 +172,6 @@ export default function ProjectDetailsPage() {
     loadProjectData();
   }, [businessId, projectId]);
 
-  // Stopwatch interval
   useEffect(() => {
     if (isTimerRunning) {
       intervalRef.current = setInterval(() => {
@@ -469,12 +495,14 @@ export default function ProjectDetailsPage() {
                   {formatOutHouse(project["outHouse?"])}
                 </span>
 
-                <Link
-                  to={`/projects/${projectId}/edit`}
-                  className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
-                >
-                  Edit Project
-                </Link>
+                {isOwner && (
+                  <Link
+                    to={`/projects/${projectId}/edit`}
+                    className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
+                  >
+                    Edit Project
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -487,17 +515,48 @@ export default function ProjectDetailsPage() {
                 <div className="divide-y divide-[#F0F0F0]">
                   <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">Customer</span>
-                    <span className="text-[#787774]">{project.customerName || "-"}</span>
+                    <span className="text-[#787774]">
+                      {project.customerId ? (
+                        <Link
+                          to={`/Customer/${project.customerId}`}
+                          className="text-[#2F6FED] hover:underline font-medium"
+                        >
+                          {project.customerName || "-"}
+                        </Link>
+                      ) : (
+                        project.customerName || "-"
+                      )}
+                    </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">Car</span>
-                    <span className="text-[#787774]">{project.carLabel || "-"}</span>
+                    <span className="text-[#787774]">
+                      {project.carId ? (
+                      <Link
+                        to={`/storage/${project.carId}`}
+                        className="text-[#2F6FED] hover:underline font-medium">
+                        {project.carLabel || "-"}
+                      </Link>
+                    ) : (
+                      project.carLabel || "-"
+                    )}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between gap-4 py-4">
+                    <span className="font-medium text-[#37352F]">License Plate</span>
+                    <span className="text-[#787774]">{carDetails?.plate || "-"}</span>
+                  </div>
+
+                  <div className="flex justify-between gap-4 py-4">
+                    <span className="font-medium text-[#37352F]">VIN</span>
+                    <span className="text-[#787774]">{carDetails?.vin || "-"}</span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">Description</span>
-                    <span className="text-[#787774] text-right max-w-[60%]">
+                    <span className="text-[#787774] text-right max-w-[60%] break-words whitespace-pre-wrap">
                       {project.description ?? "-"}
                     </span>
                   </div>
@@ -687,7 +746,7 @@ export default function ProjectDetailsPage() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => startEditingLog(log)}
-                                  className="h-9 px-3 rounded-lg border border-[#E0E0E0] text-white text-sm font-medium hover:bg-[#474540]"
+                                  className="h-9 px-3 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3]"
                                 >
                                   Edit
                                 </button>
@@ -708,7 +767,6 @@ export default function ProjectDetailsPage() {
                   )}
                 </div>
 
-                {/* Stopwatch Section */}
                 <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
                   <h3 className="text-sm font-semibold text-[#37352F] mb-3">
                     Live Timer
@@ -753,7 +811,7 @@ export default function ProjectDetailsPage() {
                           setTimerSeconds(0);
                           setTimerNote("");
                         }}
-                        className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-white  text-sm font-medium hover:bg-[#474540]"
+                        className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-white"
                       >
                         Reset
                       </button>
@@ -777,7 +835,6 @@ export default function ProjectDetailsPage() {
                   </div>
                 </div>
 
-                {/* Manual Fallback Section */}
                 <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
                   <h3 className="text-sm font-semibold text-[#37352F] mb-3">
                     Manual Time Log
