@@ -246,6 +246,7 @@ function EditEmployeeModal({ emp, onSave, onClose, saving }) {
   if (!emp) return null;
 
   const [status, setStatus] = useState(emp.status || "active");
+  const [role, setRole] = useState(emp.role || "mechanic");
 
   const joinDate = emp.createdAt
     ? new Date(emp.createdAt).toLocaleDateString(undefined, {
@@ -255,13 +256,18 @@ function EditEmployeeModal({ emp, onSave, onClose, saving }) {
       })
     : "—";
 
-  const hasChanged = status !== emp.status;
+  const hasChanged = status !== emp.status || role !== emp.role;
 
   // Status options available from edit modal (not pending — that"s handled via approve/decline)
   const statusOptions = [
     { value: "active", label: "Active" },
     { value: "suspended", label: "Suspended" },
     { value: "rejected", label: "Rejected" },
+  ];
+
+  const roleOptions = [
+    { value: "owner", label: "Owner" },
+    { value: "mechanic", label: "Mechanic" },
   ];
 
   return (
@@ -305,15 +311,29 @@ function EditEmployeeModal({ emp, onSave, onClose, saving }) {
             label="Joined"
             value={joinDate}
           />
-          <DetailRow
-            icon={<ShieldCheck className="h-4 w-4" />}
-            label="Role"
-            value="Mechanic"
-          />
         </ul>
 
-        {/* Status editor */}
+        {/* Role editor */}
         <div className="mt-5 pt-5 border-t border-[#E0E0E0]">
+          <label className="flex items-center gap-2 text-xs text-[#9B9A97] mb-2">
+            <Users className="h-4 w-4" />
+            Role
+          </label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-[#E0E0E0] bg-white text-sm text-[#37352F] focus:outline-none focus:ring-1 focus:ring-[#37352F]"
+          >
+            {roleOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Status editor */}
+        <div className="mt-4">
           <label className="flex items-center gap-2 text-xs text-[#9B9A97] mb-2">
             <ShieldCheck className="h-4 w-4" />
             Status
@@ -333,7 +353,7 @@ function EditEmployeeModal({ emp, onSave, onClose, saving }) {
 
         {/* Save button */}
         <button
-          onClick={() => onSave(emp.id, status)}
+          onClick={() => onSave(emp.id, status, role)}
           disabled={!hasChanged || saving}
           className="mt-4 w-full px-4 py-2 rounded-lg text-sm font-medium bg-[#37352F] text-white border-transparent hover:bg-[#2F2D28] disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none flex items-center justify-center gap-2"
         >
@@ -518,8 +538,8 @@ export default function EmployeeManagement() {
         return;
       }
       try {
-        const bizDoc = await getDoc(doc(db, "businesses", businessId));
-        if (!bizDoc.exists() || bizDoc.data().uid !== currentUser.uid) {
+        const empDoc = await getDoc(doc(db, "businesses", businessId, "Employees", currentUser.uid));
+        if (!empDoc.exists() || empDoc.data().role !== "owner") {
           navigate("/Home", { replace: true });
           return;
         }
@@ -610,18 +630,24 @@ export default function EmployeeManagement() {
     }
   };
 
-  const handleSaveStatus = async (uid, newStatus) => {
+  const handleSaveStatus = async (uid, newStatus, newRole) => {
+    const currentUser = auth.currentUser;
+    if (currentUser?.uid === uid && newRole !== "owner") {
+      setError("You cannot demote yourself from owner.");
+      return;
+    }
     setSavingEdit(true);
     try {
       await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
         status: newStatus,
+        role: newRole,
       });
       setEmployees((prev) =>
-        prev.map((e) => (e.id === uid ? { ...e, status: newStatus } : e)),
+        prev.map((e) => (e.id === uid ? { ...e, status: newStatus, role: newRole } : e)),
       );
       setEditingEmployee(null);
     } catch (err) {
-      setError("Failed to update employee status.");
+      setError("Failed to update employee.");
       console.error(err);
     } finally {
       setSavingEdit(false);

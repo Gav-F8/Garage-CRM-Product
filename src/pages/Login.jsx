@@ -92,10 +92,11 @@ export default function LoginPage() {
             return;
           }
 
+          const empRole = empData.role === "owner" ? "owner" : "mechanic";
           localStorage.setItem("ccgBusinessId", bizDoc.id);
-          localStorage.setItem("ccgUserRole", "mechanic");
+          localStorage.setItem("ccgUserRole", empRole);
 
-          navigate('/employee/home');
+          navigate("/home");
           return;
         }
       }
