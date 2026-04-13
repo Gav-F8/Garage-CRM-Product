@@ -495,14 +495,12 @@ export default function ProjectDetailsPage() {
                   {formatOutHouse(project["outHouse?"])}
                 </span>
 
-                {isOwner && (
-                  <Link
-                    to={`/projects/${projectId}/edit`}
-                    className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
-                  >
-                    Edit Project
-                  </Link>
-                )}
+                <Link
+                  to={`/projects/${projectId}/edit`}
+                  className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
+                >
+                  Edit Project
+                </Link>
               </div>
             </div>
 
