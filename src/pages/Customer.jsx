@@ -454,7 +454,7 @@ export default function CreateCustomerPage() {
             </p>
           </div>
 
-          {customers.length > 0 && loading === false && (
+          {customers.length > 0 && loading === false && localStorage.getItem("ccgUserRole") === "owner" && (
             <CreateButton onClick={() => setShowModal(true)} />
           )}
 
@@ -485,9 +485,11 @@ export default function CreateCustomerPage() {
         ) : customers.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No customers yet.</p>
-            <div className="flex justify-center">
-              <CreateButton onClick={() => setShowModal(true)} />
-            </div>
+            {localStorage.getItem("ccgUserRole") === "owner" && (
+              <div className="flex justify-center">
+                <CreateButton onClick={() => setShowModal(true)} />
+              </div>
+            )}
           </div>
         ) : (
           <>
