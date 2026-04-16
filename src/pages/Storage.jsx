@@ -3,7 +3,7 @@
 // ├── Search bar (visible when list has items)
 // ├── Storage list  ← reads from Firestore
 // └── CreateModal   ← writes to Firestore, updates list on success
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // NHTSA vPIC API  — free, no key required
 // Docs: https://vpic.nhtsa.dot.gov/api/
 //
@@ -11,9 +11,9 @@
 //   GET /vehicles/GetAllMakes?format=json
 //   GET /vehicles/GetModelsForMake/{make}?format=json
 //   GET /vehicles/DecodeVin/{vin}?format=json
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // FIRESTORE DATA STRUCTURE — storage/{auto-id}
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // {
 //   type:        string          // "car", "truck", "motorcycle", etc.
 //   customerId:  string | null   // ref to customers/{id}
@@ -28,7 +28,7 @@
 //   createdAt:   Timestamp
 //   updatedAt:   Timestamp
 // }
-// ─────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";

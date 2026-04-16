@@ -166,7 +166,7 @@ export default function CustomerDetailPage() {
             {localStorage.getItem("ccgUserRole") === "owner" && (
               <button
                 onClick={() => navigate(`/customer/${customerId}/edit`)}
-                className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+                className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
               >
                 Edit
               </button>

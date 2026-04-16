@@ -15,9 +15,21 @@ export function normalizeStatus(statusValue) {
 
 export function getStatusMeta(statusValue) {
   const normalized = normalizeStatus(statusValue);
-  const found = STATUS_OPTIONS.find((opt) =>
-    typeof normalized === "number" ? opt.value === normalized : opt.aliases.includes(normalized)
-  );
+
+  const found = STATUS_OPTIONS.find((opt) => {
+    if (typeof normalized === "number") {
+      return opt.value === normalized;
+    }
+
+    const normalizedKey = normalizeStatus(opt.key);
+    if (normalized === normalizedKey) return true;
+
+    const normalizedAliases = (opt.aliases || []).map((alias) =>
+      normalizeStatus(alias),
+    );
+
+    return normalizedAliases.includes(normalized);
+  });
   return found || { key: "unknown", label: "Unknown", style: "bg-gray-100 text-gray-700 border border-gray-200" };
 }
 

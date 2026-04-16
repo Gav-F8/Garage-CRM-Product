@@ -6,19 +6,22 @@ import HomePage from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ContactPage from "./pages/Contact";
+
 import CustomerPage from "./pages/Customer";
 import CustomerDetailPage from "./pages/CustomerDetail";
+import EditCustomerPage from "./pages/EditCustomerPage";
+
 import StoragePage from "./pages/Storage";
 import StorageDetailPage from "./pages/StorageDetail";
+import EditCarPage from "./pages/EditCarPage";
+
+import ProjectPage from "./pages/ProjectPage";
+import ProjectDetailsPage from "./pages/ProjectDetailsPage";
+import EditProjectPage from "./pages/EditProjectPage";
+
 import BusinessHome from "./pages/business/Home";
 import EmployeeHome from "./pages/employee/Home";
 import EmployeeManagement from "./pages/business/EmployeeManagement";
-import AllProjectsPage from "./pages/AllProjectsPage";
-import ProjectDetailsPage from "./pages/ProjectDetailsPage";
-import EditProjectPage from "./pages/EditProjectPage";
-import EditCustomerPage from "./pages/EditCustomerPage";
-import EditCarPage from "./pages/EditCarPage";
-import ProjectCreation from "./pages/Job";
 
 function App() {
   return (
@@ -106,7 +109,7 @@ function App() {
           path="/jobs"
           element={
             <ProtectedRoute>
-              <AllProjectsPage />
+              <ProjectPage />
             </ProtectedRoute>
           }
         />
@@ -131,14 +134,6 @@ function App() {
           element={
             <ProtectedRoute>
               <EditCustomerPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/jobs/new"
-          element={
-            <ProtectedRoute>
-              <ProjectCreation />
             </ProtectedRoute>
           }
         />

@@ -14,6 +14,7 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
+import { statusStyle } from "../lib/status.js";
 import { notionClasses } from "../lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
 
@@ -27,6 +28,7 @@ export default function ProjectDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentEmployee, setCurrentEmployee] = useState(null);
+  const statusMeta = statusStyle(project?.status);
 
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
@@ -43,6 +45,7 @@ export default function ProjectDetailsPage() {
 
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [isActive, setIsActive] = useState(false);
   const [timerNote, setTimerNote] = useState("");
   const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
   const intervalRef = useRef(null);
@@ -137,8 +140,12 @@ export default function ProjectDetailsPage() {
         }
 
         const projectData = { id: projectSnap.id, ...projectSnap.data() };
-        setProject(projectData);
 
+        const projectIsActive = projectData.isActive === true;
+        setIsActive(projectIsActive);
+        setIsTimerRunning(projectIsActive);
+
+        setProject(projectData);
           if (projectData.carId) {
           const carRef = doc(
             db,
@@ -171,6 +178,33 @@ export default function ProjectDetailsPage() {
 
     loadProjectData();
   }, [businessId, projectId]);
+
+  useEffect(() => {
+    setIsActive(isTimerRunning);
+  }, [isTimerRunning]);
+
+  useEffect(() => {
+    async function syncProjectActiveState() {
+      if (!businessId || !projectId || !project) return;
+      if (project.isActive === isTimerRunning) return;
+
+      try {
+        const projectRef = doc(db, "businesses", businessId, "Projects", projectId);
+        await updateDoc(projectRef, {
+          isActive: isTimerRunning,
+          updatedAt: serverTimestamp(),
+        });
+
+        setProject((prev) =>
+          prev ? { ...prev, isActive: isTimerRunning, updatedAt: Timestamp.now() } : prev
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    syncProjectActiveState();
+  }, [businessId, projectId, project, isTimerRunning]);
 
   useEffect(() => {
     if (isTimerRunning) {
@@ -422,12 +456,6 @@ export default function ProjectDetailsPage() {
     return priority.charAt(0).toUpperCase() + priority.slice(1);
   }
 
-  function formatOutHouse(value) {
-    if (value === true) return "Out House";
-    if (value === false) return "In House";
-    return "House Unknown";
-  }
-
   function getTotalMinutes() {
     return timeLogs.reduce((sum, log) => sum + (Number(log.minutes) || 0), 0);
   }
@@ -459,6 +487,10 @@ export default function ProjectDetailsPage() {
     return isOwner || log.Uid === currentUid;
   }
 
+  function isActiveProject(project) {
+    return project.isActive === true;
+  }
+
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
@@ -483,24 +515,13 @@ export default function ProjectDetailsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex h-10 items-center rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-medium text-[#37352F]">
-                  {project.status || "N/A"}
-                </span>
-
-                <span className="inline-flex h-10 items-center rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-medium text-[#37352F]">
-                  {formatPriority(project.priority)}
-                </span>
-
-                <span className="inline-flex h-10 items-center rounded-lg border border-[#E0E0E0] bg-white px-4 text-sm font-medium text-[#37352F]">
-                  {formatOutHouse(project["outHouse?"])}
-                </span>
 
                 {isOwner && (
                   <Link
                     to={`/projects/${projectId}/edit`}
                     className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
                   >
-                    Edit Project
+                    Edit Job
                   </Link>
                 )}
               </div>
@@ -509,7 +530,7 @@ export default function ProjectDetailsPage() {
             <div className="grid grid-cols-1 2xl:grid-cols-3 gap-6">
               <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6">
                 <h2 className="text-lg font-semibold text-[#37352F] mb-5">
-                  Project Details
+                  Job Details
                 </h2>
 
                 <div className="divide-y divide-[#F0F0F0]">
@@ -558,6 +579,20 @@ export default function ProjectDetailsPage() {
                     <span className="font-medium text-[#37352F]">Description</span>
                     <span className="text-[#787774] text-right max-w-[60%] break-words whitespace-pre-wrap">
                       {project.description ?? "-"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between gap-4 py-4">
+                    <span className="font-medium text-[#37352F]">Status</span>
+                    <span className="text-[#787774] block mt-1">
+                      {project.status ? statusMeta.label : "-"}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between gap-4 py-4">
+                    <span className="font-medium text - [#37352F]">Priority</span>
+                    <span className="text-[#787774] block mt-1">
+                      {project.priority || "-"}
                     </span>
                   </div>
 
@@ -634,7 +669,7 @@ export default function ProjectDetailsPage() {
                     ))
                   ) : (
                     <p className="text-sm text-[#787774]">
-                      No notes available for this project.
+                      No notes available for this job.
                     </p>
                   )}
                 </div>
@@ -648,7 +683,7 @@ export default function ProjectDetailsPage() {
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     rows={4}
-                    placeholder="Write a project note..."
+                    placeholder="Write a job note..."
                     className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all resize-none"
                   />
 
@@ -713,7 +748,7 @@ export default function ProjectDetailsPage() {
                               </button>
                               <button
                                 onClick={cancelEditingLog}
-                                className="h-9 px-3 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium"
+                                className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
                               >
                                 Cancel
                               </button>
@@ -746,8 +781,8 @@ export default function ProjectDetailsPage() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => startEditingLog(log)}
-                                  className="h-9 px-3 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3]"
-                                >
+                                  className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                                  >
                                   Edit
                                 </button>
                                 <button
@@ -811,7 +846,7 @@ export default function ProjectDetailsPage() {
                           setTimerSeconds(0);
                           setTimerNote("");
                         }}
-                        className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-white"
+                        className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
                       >
                         Reset
                       </button>

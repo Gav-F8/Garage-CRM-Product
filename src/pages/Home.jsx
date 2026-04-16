@@ -82,7 +82,7 @@ export default function HomePage() {
             <div>
               <h2 className="text-lg font-semibold text-[#37352F] mb-4">Quick Start</h2>
               <Link
-                to="/jobs/new"
+                to="/jobs"
                 className="block w-full bg-[#37352F] text-white px-6 py-4 rounded-lg font-medium hover:bg-[#474540] transition-colors shadow-sm text-center"
               >
                 <div className="flex items-center justify-center gap-3">

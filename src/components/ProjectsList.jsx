@@ -146,9 +146,12 @@ export default function ProjectsList({
   const uniqueMechanics = useMemo(() => {
     const mechanics = new Set();
     projects.forEach((project) => {
-    (project.assignedMechanicName || []).forEach((name) => mechanics.add(name));
-  });
-  return ["all", ...mechanics];
+      const names = Array.isArray(project.assignedMechanicName)
+        ? project.assignedMechanicName
+        : [project.assignedMechanicName].filter(Boolean);
+      names.forEach((name) => mechanics.add(name));
+    });
+    return ["all", ...mechanics];
   }, [projects]);
 
   // Applies all filters and search term to determine if a project should be rendered
@@ -157,7 +160,12 @@ export default function ProjectsList({
     if(filters.complete && !isCompleteStatus(project.status)) return false;
     if(filters.WIP && !isWIPStatus(project.status)) return false;
     if(statusFilter !== "all" && getStatusMeta(project.status).key !== statusFilter) return false;
-    if(mechanicFilter !== "all" && !project.assignedMechanicName?.includes(mechanicFilter)) return false;
+    if (mechanicFilter !== "all") {
+      const names = Array.isArray(project.assignedMechanicName)
+        ? project.assignedMechanicName
+        : [project.assignedMechanicName].filter(Boolean);
+      if (!names.includes(mechanicFilter)) return false;
+    }
     if(search.trim()) {
       const term = search.toLowerCase();
       if(

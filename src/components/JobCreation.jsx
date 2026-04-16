@@ -1,15 +1,18 @@
 import { useMemo, useState } from "react";
+import { STATUS_OPTIONS } from "../lib/status";
 
 const INITIAL_FORM = {
+  title: "",
   customerId: "",
-  vehicleId: "",
-  currentMileage: "",
-  initialJobDescription: "",
+  carId: "",
+  status: "",
+  assignedMechanicId: "",
 };
 
 export default function JobCreation({
   customers = [],
   vehicles = [],
+  mechanics = [],
   onSubmit,
   submitting = false,
 }) {
@@ -26,26 +29,20 @@ export default function JobCreation({
     setErrors((prev) => ({ ...prev, [name]: "" }));
 
     if (name === "customerId") {
-      setForm((prev) => ({ ...prev, customerId: value, vehicleId: "" }));
-      setErrors((prev) => ({ ...prev, customerId: "", vehicleId: "" }));
+      setForm((prev) => ({ ...prev, customerId: value, carId: "" }));
+      setErrors((prev) => ({ ...prev, customerId: "", carId: "" }));
     }
   };
 
   const validate = () => {
     const nextErrors = {};
 
+    if (!form.title.trim()) nextErrors.title = "Please enter a job title";
     if (!form.customerId) nextErrors.customerId = "Please select a customer";
-    if (!form.vehicleId) nextErrors.vehicleId = "Please select a vehicle";
-
-    const mileage = Number(form.currentMileage);
-    if (!form.currentMileage.trim()) {
-      nextErrors.currentMileage = "Current mileage is required";
-    } else if (Number.isNaN(mileage) || mileage < 0) {
-      nextErrors.currentMileage = "Mileage must be a valid non-negative number";
-    }
-
-    if (!form.initialJobDescription.trim()) {
-      nextErrors.initialJobDescription = "Initial job description is required";
+    if (!form.carId) nextErrors.carId = "Please select a vehicle";
+    if (!form.status) nextErrors.status = "Please select a status";
+    if (!form.assignedMechanicId) {
+      nextErrors.assignedMechanicId = "Please assign a mechanic";
     }
 
     setErrors(nextErrors);
@@ -57,9 +54,11 @@ export default function JobCreation({
     if (!validate()) return;
 
     onSubmit?.({
-      ...form,
-      currentMileage: Number(form.currentMileage),
-      initialJobDescription: form.initialJobDescription.trim(),
+      title: form.title.trim(),
+      customerId: form.customerId,
+      carId: form.carId,
+      status: form.status,
+      assignedMechanicId: form.assignedMechanicId,
     });
   };
 
@@ -70,11 +69,28 @@ export default function JobCreation({
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-[#37352F]">Create New Job</h2>
         <p className="mt-1 text-sm text-[#787774]">
-          Select a customer and vehicle, then add the initial job details.
+          Fill in the required fields to create a new job.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="title"
+            className="text-sm font-medium text-[#37352F]"
+          >
+            Title
+          </label>
+          <input
+            id="title"
+            value={form.title}
+            onChange={(e) => setField("title", e.target.value)}
+            placeholder="e.g. Brake inspection and service"
+            className="h-11 rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
+          />
+          {errors.title && <p className="text-xs text-[#C53030]">{errors.title}</p>}
+        </div>
+
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label
@@ -103,15 +119,15 @@ export default function JobCreation({
 
           <div className="flex flex-col gap-1.5">
             <label
-              htmlFor="vehicleId"
+              htmlFor="carId"
               className="text-sm font-medium text-[#37352F]"
             >
               Vehicle
             </label>
             <select
-              id="vehicleId"
-              value={form.vehicleId}
-              onChange={(e) => setField("vehicleId", e.target.value)}
+              id="carId"
+              value={form.carId}
+              onChange={(e) => setField("carId", e.target.value)}
               disabled={!form.customerId || !selectedCustomerHasVehicles}
               className="h-11 rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 text-sm text-[#37352F] outline-none transition-all disabled:cursor-not-allowed disabled:opacity-60 focus:border-[#37352F] focus:bg-white"
             >
@@ -132,8 +148,8 @@ export default function JobCreation({
                 </option>
               ))}
             </select>
-            {errors.vehicleId && (
-              <p className="text-xs text-[#C53030]">{errors.vehicleId}</p>
+            {errors.carId && (
+              <p className="text-xs text-[#C53030]">{errors.carId}</p>
             )}
           </div>
         </div>
@@ -141,47 +157,53 @@ export default function JobCreation({
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <label
-              htmlFor="currentMileage"
+              htmlFor="status"
               className="text-sm font-medium text-[#37352F]"
             >
-              Current Mileage
+              Status
             </label>
-            <input
-              id="currentMileage"
-              type="number"
-              min="0"
-              step="1"
-              placeholder="e.g. 126450"
-              value={form.currentMileage}
-              onChange={(e) => setField("currentMileage", e.target.value)}
+            <select
+              id="status"
+              value={form.status}
+              onChange={(e) => setField("status", e.target.value)}
               className="h-11 rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
-            />
-            {errors.currentMileage && (
-              <p className="text-xs text-[#C53030]">{errors.currentMileage}</p>
+            >
+              <option value="">Select status</option>
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status.key} value={status.key}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+            {errors.status && (
+              <p className="text-xs text-[#C53030]">{errors.status}</p>
             )}
           </div>
-        </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="initialJobDescription"
-            className="text-sm font-medium text-[#37352F]"
-          >
-            Initial Job Description
-          </label>
-          <textarea
-            id="initialJobDescription"
-            rows={5}
-            placeholder="Describe the customer's issue, requested work, or initial diagnosis..."
-            value={form.initialJobDescription}
-            onChange={(e) => setField("initialJobDescription", e.target.value)}
-            className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all resize-none focus:border-[#37352F] focus:bg-white"
-          />
-          {errors.initialJobDescription && (
-            <p className="text-xs text-[#C53030]">
-              {errors.initialJobDescription}
-            </p>
-          )}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="assignedMechanicId"
+              className="text-sm font-medium text-[#37352F]"
+            >
+              Assigned Mechanic
+            </label>
+            <select
+              id="assignedMechanicId"
+              value={form.assignedMechanicId}
+              onChange={(e) => setField("assignedMechanicId", e.target.value)}
+              className="h-11 rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
+            >
+              <option value="">Select mechanic</option>
+              {mechanics.map((mechanic) => (
+                <option key={mechanic.id} value={mechanic.id}>
+                  {mechanic.name || mechanic.id}
+                </option>
+              ))}
+            </select>
+            {errors.assignedMechanicId && (
+              <p className="text-xs text-[#C53030]">{errors.assignedMechanicId}</p>
+            )}
+          </div>
         </div>
 
         <div className="pt-2">

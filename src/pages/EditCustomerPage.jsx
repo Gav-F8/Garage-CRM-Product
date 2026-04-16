@@ -163,7 +163,7 @@ export default function EditCustomerPage() {
               <button
                 type="submit"
                 disabled={saving}
-                className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 disabled:opacity-50"
+                className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
@@ -171,7 +171,7 @@ export default function EditCustomerPage() {
               <button
                 type="button"
                 onClick={() => navigate(`/customer/${customerId}`)}
-                className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200"
+                className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
               >
                 Cancel
               </button>

@@ -193,7 +193,7 @@ export default function StorageDetailPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate(`/storage/${storageId}/edit`)}
-              className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+              className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
             >
               Edit
             </button>
@@ -282,7 +282,7 @@ export default function StorageDetailPage() {
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">Active Jobs</label>
                 <p className="text-sm text-[#37352F] font-medium">
-                  {relatedProjects.filter(p => p.status === "active").length} active
+                  {relatedProjects.filter(p => p.isActive === true).length} active
                 </p>
               </div>
 
@@ -336,7 +336,7 @@ export default function StorageDetailPage() {
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => navigate(`/projects/${project.id}`)}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline transition-all duration-150 active:text-blue-800"
+                          className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
                         >
                           View Details
                         </button>

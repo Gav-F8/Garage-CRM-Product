@@ -10,6 +10,7 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import { notionClasses } from "../lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
+import { STATUS_OPTIONS } from "/src/lib/status.js";
 
 export default function EditProjectPage() {
   const { projectId } = useParams();
@@ -49,10 +50,15 @@ export default function EditProjectPage() {
         }
 
         const data = projectSnap.data();
+        
+        // Normalizes older status values to ensure they are valid options
+        const allowedStatusKeys = new Set(STATUS_OPTIONS.map((status) => status.label));
+        const loadedStatus = data.status || "";
+        const safeStatus = allowedStatusKeys.has(loadedStatus) ? loadedStatus : "";
 
         setFormData({
           title: data.title || "",
-          status: data.status || "",
+          status: safeStatus,
           priority: data.priority || "",
           customerName: data.customerName || "",
           carLabel: data.carLabel || "",
@@ -161,13 +167,19 @@ export default function EditProjectPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">Status</label>
-              <input
-                type="text"
+              <select
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
                 className={notionClasses.input}
-              />
+              >
+                <option value="">Select status</option>
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status.key} value={status.key}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
@@ -215,7 +227,7 @@ export default function EditProjectPage() {
               <button
                 type="button"
                 onClick={() => navigate(`/projects/${projectId}`)}
-                className="h-11 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] transition-all"
+                className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
               >
                 Cancel
               </button>

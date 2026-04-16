@@ -411,7 +411,7 @@ export default function CreateCustomerPage() {
       searchInputRef.current.value = "";
     }
   }, [showModal]);
-
+  
 
   const handleCreated = (newCustomer) => {
     setCustomers((prev) => [newCustomer, ...prev]);
