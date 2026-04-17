@@ -15,7 +15,7 @@ import StoragePage from "./pages/Storage";
 import StorageDetailPage from "./pages/StorageDetail";
 import EditCarPage from "./pages/EditCarPage";
 
-import ProjectPage from "./pages/ProjectPage";
+import ProjectPage from "./pages/Project";
 import ProjectDetailsPage from "./pages/ProjectDetailsPage";
 import EditProjectPage from "./pages/EditProjectPage";
 

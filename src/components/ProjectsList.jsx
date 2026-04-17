@@ -91,7 +91,7 @@ function ProjectRow({ project }) {
           {project.carLabel || "-"}
         </span>
 
-        <span className="flex-1 text-sm font-medium text-[#2F6FED]">
+        <span className="flex-1 px-5 text-sm font-medium text-[#2F6FED]">
           {project.title || "Untitled Project"}
         </span>
 
@@ -193,14 +193,14 @@ export default function ProjectsList({
 
   return (
     <div className="w-full">
-      <p className="mb-4 text-sm text-[#787774]">
+      <p className="flex items-center justify-between px-4 py-1 mb-2 mt-2 text-sm text-[#787774]">
         {loading
           ? "Loading..."
           : `Showing ${filteredProjects.length} of ${projects.length} projects`}
       </p>
 
       {!loading && projects.length > 0 && showFilters && (
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-4 px-2 flex flex-wrap gap-3">
           {["active", "complete", "WIP"].map((key) => (
             <button
               key={key}
@@ -243,7 +243,7 @@ export default function ProjectsList({
       )}
 
       {!loading && projects.length > 0 && showSearch && (
-        <div className="mb-6 w-full">
+        <div className="mb-6 px-3 w-full">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -268,7 +268,7 @@ export default function ProjectsList({
         <div className="flex flex-col w-full bg-white border border-[#E0E0E0] rounded-xl shadow-sm overflow-hidden">
           <div className="flex items-center w-full px-6 py-3 bg-[#F7F7F5] border-b border-[#E0E0E0] text-xs font-semibold text-[#787774] uppercase tracking-wider">
             <span className="w-32 shrink-0">Car Make</span>
-            <span className="flex-1">Job Title</span>
+            <span className="px-5 flex-1">Job Title</span>
             <span className="w-40 shrink-0">Status</span>
             <span className="w-36 shrink-0">Active</span>
           </div>

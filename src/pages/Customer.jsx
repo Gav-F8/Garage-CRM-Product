@@ -494,7 +494,7 @@ export default function CreateCustomerPage() {
         ) : (
           <>
             {/* Items Per Page and Total Count */}
-            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+            <div className="flex items-center justify-between px-4 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
                 Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> customers
               </div>

@@ -106,7 +106,7 @@ const INITIAL_JOB_FORM = {
   customerId: "",
   carId: "",
   status: "",
-  assignedMechanicId: "",
+  assignedMechanicIds: [],
 };
 
 function validateJobForm(form) {
@@ -115,8 +115,8 @@ function validateJobForm(form) {
   if (!form.customerId) errors.customerId = "Please select a customer";
   if (!form.carId) errors.carId = "Please select a vehicle";
   if (!form.status) errors.status = "Please select a status";
-  if (!form.assignedMechanicId) {
-    errors.assignedMechanicId = "Please select a mechanic";
+  if (!form.assignedMechanicIds.length) {
+    errors.assignedMechanicIds = "Please select atleast one mechanic";
   }
   return errors;
 }
@@ -139,12 +139,38 @@ function CreateButton({ onClick }) {
 function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCreate }) {
   const [form, setForm] = useState(INITIAL_JOB_FORM);
   const [errors, setErrors] = useState({});
+  const [selectedMechanicId, setSelectedMechanicId] = useState("");
 
+  // Add mechanic to the assignedMechanicIds array in form state
+  const addMechanic = (mechanicId) => {
+    if (!mechanicId) return;
+    setForm((prev) => {
+      if (prev.assignedMechanicIds.includes(mechanicId)) return prev;
+      return {
+        ...prev,
+        assignedMechanicIds: [...prev.assignedMechanicIds, mechanicId],
+      };
+    });
+    setSelectedMechanicId("");
+    setErrors((prev) => ({ ...prev, assignedMechanicIds: "" }));
+  };
+
+  // Remove mechanic from the assignedMechanicIds array in form state
+  const removeMechanic = (mechanicId) => {
+    setForm((prev) => ({
+      ...prev,
+      assignedMechanicIds: prev.assignedMechanicIds.filter((id) => id !== mechanicId),
+    }));
+  };
+
+  // Filter vehicles based on selected customer
   const filteredVehicles = useMemo(() => {
     if (!form.customerId) return [];
     return vehicles.filter((vehicle) => vehicle.customerId === form.customerId);
   }, [vehicles, form.customerId]);
 
+  // Handle form field changes and clear related errors
+  // P.S this is a mess but it works
   const setField = (name, value) => {
     setForm((prev) => {
       if (name === "customerId") {
@@ -170,7 +196,7 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
       customerId: form.customerId,
       carId: form.carId,
       status: form.status,
-      assignedMechanicId: form.assignedMechanicId,
+      assignedMechanicIds: form.assignedMechanicIds,
     });
 
     if (ok) {
@@ -187,6 +213,8 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
       >
         <h2 className="text-lg font-semibold text-[#37352F]">Create New Job</h2>
 
+
+        {/* TITLE FORM */}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-[#37352F]">Title *</label>
           <input
@@ -198,6 +226,7 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
           {errors.title && <p className="text-xs text-[#C53030]">{errors.title}</p>}
         </div>
 
+        {/* CUSTOMER SELECT DROP DOWN MENU */}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-[#37352F]">Customer *</label>
           <select
@@ -215,6 +244,7 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
           {errors.customerId && <p className="text-xs text-[#C53030]">{errors.customerId}</p>}
         </div>
 
+        {/* VEHICLE SELECT DROP DOWN MENU */}
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-[#37352F]">Vehicle *</label>
           <select
@@ -241,6 +271,7 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
           {errors.carId && <p className="text-xs text-[#C53030]">{errors.carId}</p>}
         </div>
 
+        {/*STATUS SELECT DROP DOWN MENU */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-[#37352F]">Status *</label>
@@ -259,23 +290,49 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
             {errors.status && <p className="text-xs text-[#C53030]">{errors.status}</p>}
           </div>
 
+        {/* MECHANIC SELECT DROP DOWN MENU */}
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-[#37352F]">Assigned Mechanic *</label>
             <select
-              value={form.assignedMechanicId}
-              onChange={(event) => setField("assignedMechanicId", event.target.value)}
+              value={selectedMechanicId}
+              onChange={(event) => addMechanic(event.target.value)}
               className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
             >
               <option value="">Select mechanic</option>
-              {mechanics.map((mechanic) => (
+              {mechanics.filter((mechanic) => !form.assignedMechanicIds.includes(mechanic.id)).map((mechanic) => (
                 <option key={mechanic.id} value={mechanic.id}>
                   {mechanic.name || mechanic.id}
                 </option>
               ))}
+
             </select>
-            {errors.assignedMechanicId && (
-              <p className="text-xs text-[#C53030]">{errors.assignedMechanicId}</p>
+            {errors.assignedMechanicIds && (
+              <p className="text-xs text-[#C53030]">{errors.assignedMechanicIds}</p>
             )}
+
+            {/* ASSIGNED MECHANIC TAG */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              {form.assignedMechanicIds.map((mechanicId) => {
+                const mechanic = mechanics.find((m) => m.id === mechanicId);
+                return (
+                  <span
+                    key={mechanicId}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F7F6F3] text-sm text-[#37352F] border border-[#E0E0E0]"
+                  >
+                    {mechanic?.name || mechanicId}
+                    <button
+                      type="button"
+                      onClick={() => removeMechanic(mechanicId)}
+                      className="text-white hover:text-[#37352F] leading-none"
+                      aria-label="Remove mechanic"
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+
           </div>
         </div>
 
@@ -298,6 +355,8 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
     </div>
   );
 }
+
+
 
 export default function ProjectPage() {
   const [businessId, setBusinessId] = useState(null);
@@ -323,6 +382,9 @@ export default function ProjectPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Fetch necessary data for job creation form (customers, vehicles, mechanics)
+// ══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
@@ -379,9 +441,13 @@ export default function ProjectPage() {
 
       const selectedCustomer = customers.find((customer) => customer.id === payload.customerId);
       const selectedVehicle = vehicles.find((vehicle) => vehicle.id === payload.carId);
-      const selectedMechanic = mechanics.find(
-        (mechanic) => mechanic.id === payload.assignedMechanicId,
+      const selectedMechanics = mechanics.filter((mechanic) =>
+        payload.assignedMechanicIds.includes(mechanic.id),
       );
+
+      const assignedMechanicNames = selectedMechanics
+        .map((mechanic) => mechanic.name)
+        .filter(Boolean);
 
       const carLabel = [
         selectedVehicle?.year,
@@ -398,14 +464,18 @@ export default function ProjectPage() {
         carId: payload.carId,
         carLabel: carLabel || null,
         status: payload.status,
-        assignedMechanicId: payload.assignedMechanicId,
-        assignedMechanicName: [selectedMechanic?.name] || null,
+
+        // keep legacy field for compatibility where needed
+        assignedMechanicId: payload.assignedMechanicIds[0] || null,
+
+        // new multi-mechanic fields
+        assignedMechanicIds: payload.assignedMechanicIds,
+        assignedMechanicName: assignedMechanicNames,
 
         createdByEmployeeId: currentUser.uid,
         createdByEmployeeName,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-
         isActive: false,
         priority: null,
         totalMinutes: 0,
@@ -482,7 +552,7 @@ export default function ProjectPage() {
 
         {/* Info Bar with Pagination Controls */}
         {!loading && projects.length > 0 && (
-          <div className="flex items-center justify-between mb-6 px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+          <div className="flex items-center justify-between mb-0 px-4 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
             <div className="text-sm text-[#787774]">
               Total: <span className="font-semibold text-[#37352F]">{projects.length}</span> Jobs
             </div>

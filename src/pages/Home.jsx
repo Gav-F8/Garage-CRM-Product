@@ -164,7 +164,7 @@ export default function HomePage() {
           {/* Right Column - Recent Projects */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-[#37352F]">Relevent Jobs</h2>
+              <h2 className="text-lg px-3 font-semibold text-[#37352F]">Relevent Jobs</h2>
               <Link to="/jobs" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                 View All →
               </Link>
