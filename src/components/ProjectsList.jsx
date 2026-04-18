@@ -125,6 +125,9 @@ export default function ProjectsList({
   showFilters = true,
   showSearch = true,
   searchInputClassName,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
   }) {
   
   const [filters, setFilters] = useState({
@@ -276,6 +279,18 @@ export default function ProjectsList({
           {filteredProjects.map((project) => (
             <ProjectRow key={project.id} project={project} />
           ))}
+
+          {hasMore && (
+            <div className="flex items-center justify-center px-6 py-4 border-t border-[#E0E0E0] bg-[#F7F7F5]">
+              <button
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="h-10 px-6 rounded-lg bg-[#37352F] text-white text-sm font-medium hover:bg-[#474540] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                {loadingMore ? "Loading more..." : "Load More"}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

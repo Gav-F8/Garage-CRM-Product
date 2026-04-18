@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
-import { getDoc, doc, getDocs, collection, query } from "firebase/firestore";
+import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
+import { statusStyle } from "/src/lib/status.js";
 
 // Fetches the customer document for this detail page.
 async function fetchCustomerDetail(businessId, customerId) {
@@ -30,16 +31,13 @@ async function fetchCustomerDetail(businessId, customerId) {
 async function fetchRelatedProjects(businessId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef);
+    const q = query(projectsRef, where("customerId", "==", customerId));
     const snap = await getDocs(q);
 
-    const relatedProjects = [];
-    for (const doc of snap.docs) {
-      const projectData = doc.data();
-      if (projectData.customerId === customerId) {
-        relatedProjects.push({ id: doc.id, ...projectData });
-      }
-    }
+    const relatedProjects = snap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
     return relatedProjects;
   } catch (error) {
     console.error("Error fetching related projects:", error);
@@ -51,28 +49,25 @@ async function fetchRelatedProjects(businessId, customerId) {
 async function fetchTotalTimeLogs(businessId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef);
+    const q = query(projectsRef, where("customerId", "==", customerId));
     const snap = await getDocs(q);
 
     let totalMinutes = 0;
     for (const projectDoc of snap.docs) {
-      const projectData = projectDoc.data();
-      if (projectData.customerId === customerId) {
-        const timeLogsRef = collection(
-          db,
-          "businesses",
-          businessId,
-          "Projects",
-          projectDoc.id,
-          "TimeLogs",
-        );
-        const timeLogsSnap = await getDocs(timeLogsRef);
+      const timeLogsRef = collection(
+        db,
+        "businesses",
+        businessId,
+        "Projects",
+        projectDoc.id,
+        "TimeLogs",
+      );
+      const timeLogsSnap = await getDocs(timeLogsRef);
 
-        for (const timeLogDoc of timeLogsSnap.docs) {
-          const timeLogData = timeLogDoc.data();
-          if (timeLogData.minutes) {
-            totalMinutes += timeLogData.minutes;
-          }
+      for (const timeLogDoc of timeLogsSnap.docs) {
+        const timeLogData = timeLogDoc.data();
+        if (timeLogData.minutes) {
+          totalMinutes += timeLogData.minutes;
         }
       }
     }
@@ -188,7 +183,7 @@ export default function CustomerDetailPage() {
             {localStorage.getItem("ccgUserRole") === "owner" && (
               <button
                 onClick={() => navigate(`/customer/${customerId}/edit`)}
-                className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
+                className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
               >
                 Edit
               </button>
@@ -341,7 +336,9 @@ export default function CustomerDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {relatedProjects.map((project) => (
+                  {relatedProjects.map((project) => {
+                    const { label, style } = statusStyle(project.status);
+                    return (
                     <tr
                       key={project.id}
                       className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
@@ -351,17 +348,9 @@ export default function CustomerDetailPage() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span
-                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                            project.status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : project.status === "active"
-                                ? "bg-blue-100 text-blue-700"
-                                : project.status === "completed"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-700"
-                          }`}
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style}`}
                         >
-                          {project.status || "-"}
+                          {label || "-"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-[#37352F]">
@@ -374,13 +363,13 @@ export default function CustomerDetailPage() {
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => navigate(`/projects/${project.id}`)}
-                          className="text-sm text-blue-600 hover:text-blue-700 font-medium hover:underline transition-all duration-150 active:text-blue-800"
+                          className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
                         >
                           View Details
                         </button>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

@@ -28,6 +28,7 @@ import {
   serverTimestamp,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 
 import { notionClasses } from "/src/lib/notion-theme";
@@ -104,20 +105,15 @@ async function checkHasJob(businessId, customerId) {
   try {
     // Query Projects collection to see if any project references this customer
     const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef);
+    const q = query(
+      projectsRef,
+      where("customerId", "==", customerId),
+      where("isActive", "==", true)
+    );
     const snap = await getDocs(q);
 
-    // Check if any project matches the customerId AND has "active" status
-    for (const doc of snap.docs) {
-      const projectData = doc.data();
-      if (
-        projectData.customerId === customerId &&
-        projectData.isActive === true
-      ) {
-        return true;
-      }
-    }
-    return false;
+    // If any results found, customer has an active job
+    return snap.size > 0;
   } catch (error) {
     console.error("Error checking for jobs:", error);
     return false;
@@ -126,35 +122,33 @@ async function checkHasJob(businessId, customerId) {
 
 async function fetchTotalHours(businessId, customerId) {
   try {
+    // Query only projects for this customer (server-side filtering)
     const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef);
+    const q = query(projectsRef, where("customerId", "==", customerId));
     const snap = await getDocs(q);
 
     let totalMinutes = 0;
+    
+    // Fetch TimeLogs only for projects that belong to this customer
     for (const projectDoc of snap.docs) {
-      const projectData = projectDoc.data();
-      if (projectData.customerId === customerId) {
-        // Fetch TimeLogs for this project
-        const timeLogsRef = collection(
-          db,
-          "businesses",
-          businessId,
-          "Projects",
-          projectDoc.id,
-          "TimeLogs",
-        );
-        const timeLogsSnap = await getDocs(timeLogsRef);
+      const timeLogsRef = collection(
+        db,
+        "businesses",
+        businessId,
+        "Projects",
+        projectDoc.id,
+        "TimeLogs",
+      );
+      const timeLogsSnap = await getDocs(timeLogsRef);
 
-        for (const timeLogDoc of timeLogsSnap.docs) {
-          const timeLogData = timeLogDoc.data();
-          if (timeLogData.minutes) {
-            totalMinutes += timeLogData.minutes;
-          }
+      for (const timeLogDoc of timeLogsSnap.docs) {
+        const timeLogData = timeLogDoc.data();
+        if (timeLogData.minutes) {
+          totalMinutes += timeLogData.minutes;
         }
       }
     }
 
-    // Convert minutes to hours and minutes
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return `${hours}h ${minutes}m`;

@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -20,9 +21,9 @@ import { statusStyle } from "/src/lib/status.js";
 
 export default function ProjectDetailsPage() {
   // Route navigation and identifier.
-  const { navigate } = useNavigate();
+  const navigate = useNavigate();
   const { projectId } = useParams();
-
+  
   // Project-level data and UI state.
   const [project, setProject] = useState(null);
   const [carDetails, setCarDetails] = useState(null);
@@ -32,28 +33,92 @@ export default function ProjectDetailsPage() {
   const [error, setError] = useState("");
   const [currentEmployee, setCurrentEmployee] = useState(null);
   const statusMeta = statusStyle(project?.status);
-
+  
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
-
+  
   const [newMinutes, setNewMinutes] = useState("");
   const [newLogNote, setNewLogNote] = useState("");
   const [newWorkDate, setNewWorkDate] = useState("");
   const [savingTimeLog, setSavingTimeLog] = useState(false);
-
+  
   const [editingLogId, setEditingLogId] = useState(null);
   const [editMinutes, setEditMinutes] = useState("");
   const [editLogNote, setEditLogNote] = useState("");
   const [editWorkDate, setEditWorkDate] = useState("");
-
+  
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [timerNote, setTimerNote] = useState("");
   const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
   const intervalRef = useRef(null);
-
+  const isMountedRef = useRef(true);
+  const notesUnsubscribeRef = useRef(null);
+  const timeLogsUnsubscribeRef = useRef(null);
+  
   const businessId = localStorage.getItem("ccgBusinessId");
+
+  // Sets up real-time listener for Notes, sorted by newest first
+  function setupNotesListener() {
+    if (!businessId || !projectId) return;
+
+    const notesRef = collection(
+      db,
+      "businesses",
+      businessId,
+      "Projects",
+      projectId,
+      "Notes"
+    );
+
+    const notesQuery = query(notesRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      notesQuery,
+      (snapshot) => {
+        const notesList = snapshot.docs.map((noteDoc) => ({
+          id: noteDoc.id,
+          ...noteDoc.data(),
+        }));
+        setNotes(notesList);
+      }
+    );
+    return unsubscribe;
+  }
+
+  // Sets up real-time lisener for TimeLogs, sorted by newest first
+  function setupTimeLogsListener() {
+    if (!businessId || !projectId) return;
+
+    const logsRef = collection(
+      db,
+      "businesses",
+      businessId,
+      "Projects",
+      projectId,
+      "TimeLogs"
+    );
+
+    const logsQuery = query(logsRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      logsQuery,
+      (snapshot) => {
+        const logsList = snapshot.docs.map((logDoc) => ({
+          id: logDoc.id,
+          ...logDoc.data(),
+        }));
+        setTimeLogs(logsList);
+      },
+      (error) => {
+        console.error("Error listening to time logs:", error);
+        setError(error.message);
+      }
+    );
+
+    return unsubscribe;
+  }
 
   // Loads Notes subcollection sorted by newest first.
   async function loadNotes() {
@@ -191,6 +256,31 @@ export default function ProjectDetailsPage() {
     loadProjectData();
   }, [businessId, projectId]);
 
+  // Set up real-time listeners for notes and time logs
+  useEffect(() => {
+    if (!businessId || !projectId) return;
+
+    const notesUnsubscribe = setupNotesListener();
+    if (notesUnsubscribe) {
+      notesUnsubscribeRef.current = notesUnsubscribe;
+    }
+
+    const timeLogsUnsubscribe = setupTimeLogsListener();
+    if (timeLogsUnsubscribe) {
+      timeLogsUnsubscribeRef.current = timeLogsUnsubscribe;
+    }
+
+    // Cleanup listeners on unmount or when depenencies change
+    return () => {
+      if (notesUnsubscribeRef.current) {
+        notesUnsubscribeRef.current();
+      }
+      if (timeLogsUnsubscribeRef.current) {
+        timeLogsUnsubscribeRef.current();
+      }
+    };
+  }, [businessId, projectId]);
+
   // Mirrors timer state into local isActive state.
   useEffect(() => {
     setIsActive(isTimerRunning);
@@ -243,6 +333,40 @@ export default function ProjectDetailsPage() {
     };
   }, [isTimerRunning]);
 
+
+  // Stops Timer if running
+  // Runs cleanup on unmount, if project is still active, set it to inactive to prevent orphaned active projects.
+  useEffect(() => {
+      return () => {
+        isMountedRef.current = false;
+        if (projectId && businessId && project) {
+          try {
+            const projectRef = doc(
+              db,
+              "businesses",
+              businessId,
+              "Projects",
+              projectId
+            );
+            updateDoc(projectRef, {
+              isActive: false,
+              updatedAt: serverTimestamp(),
+            }).catch(err => console.error("Failed to update project on unmount", err));
+          } catch (err) {
+            console.error("Error in unmount cleanup", err);
+          }
+        }
+      };
+    }, []); // Empty dependency array ensures this runs only on unmount
+
+  // Sets isMountedRef to true when component mounts.
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Adds a project note authored by the current employee.
   async function handleAddNote() {
     const trimmedNote = newNote.trim();
@@ -275,7 +399,6 @@ export default function ProjectDetailsPage() {
       });
 
       setNewNote("");
-      await loadNotes();
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to add note.");
@@ -327,7 +450,6 @@ export default function ProjectDetailsPage() {
       setNewMinutes("");
       setNewLogNote("");
       setNewWorkDate("");
-      await loadTimeLogs();
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to add time log.");
@@ -379,7 +501,6 @@ export default function ProjectDetailsPage() {
       setTimerSeconds(0);
       setTimerNote("");
       setIsTimerRunning(false);
-      await loadTimeLogs();
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to submit stopwatch time log.");
@@ -405,7 +526,6 @@ export default function ProjectDetailsPage() {
       );
 
       await deleteDoc(logRef);
-      await loadTimeLogs();
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to delete time log.");
@@ -462,7 +582,6 @@ export default function ProjectDetailsPage() {
       });
 
       cancelEditingLog();
-      await loadTimeLogs();
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to update time log.");
@@ -557,7 +676,7 @@ export default function ProjectDetailsPage() {
                 {isOwner && (
                   <button
                     onClick={() => navigate(`/projects/${projectId}/edit`)}
-                    className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
+                    className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
                   >
                     Edit
                   </button>

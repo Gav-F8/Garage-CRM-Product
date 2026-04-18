@@ -11,6 +11,9 @@ export default function HomePage() {
     projects,
     loading: loadingProjects,
     error: projectsError,
+    hasMore,
+    loadingMore,
+    loadMore,
   } = useProjectsForCurrentUser();
 
   const [stats, setStats] = useState({
@@ -173,6 +176,9 @@ export default function HomePage() {
               projects={projects}
               loading={loadingProjects}
               error={projectsError}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              onLoadMore={loadMore}
             />
           </div>
         </div>

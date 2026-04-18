@@ -42,6 +42,7 @@ import {
   serverTimestamp,
   orderBy,
   query,
+  where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
@@ -156,33 +157,15 @@ async function checkHasJob(businessId, storageId, customerId) {
   try {
     // Query Projects collection to see if any project references this storage or customer
     const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef);
+    const q = query(
+      projectsRef,
+      where("carId", "==", storageId),
+      where("isActive", "==", true)
+    );
     const snap = await getDocs(q);
 
-    // Check if any project matches the storageId or customerId AND has "active" status
-    for (const doc of snap.docs) {
-      const projectData = doc.data();
-      // Debug logging
-      if (
-        projectData.vehicleId === storageId ||
-        projectData.customerId === customerId
-      ) {
-        console.log(`Found project for storage ${storageId}:`, {
-          projectId: doc.id,
-          vehicleId: projectData.vehicleId,
-          customerId: projectData.customerId,
-          isActive: projectData.isActive,
-        });
-      }
-      if (
-        (projectData.vehicleId === storageId ||
-          projectData.customerId === customerId) &&
-        projectData.isActive === true
-      ) {
-        return true;
-      }
-    }
-    return false;
+    // If any results found, storage item has an active job
+    return snap.size > 0;
   } catch (error) {
     console.error("Error checking for jobs:", error);
     return false;
@@ -192,32 +175,27 @@ async function checkHasJob(businessId, storageId, customerId) {
 async function fetchTotalHours(businessId, storageId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef);
+    const q = query(projectsRef, where("carId", "==", storageId));
     const snap = await getDocs(q);
 
     let totalMinutes = 0;
-    for (const projectDoc of snap.docs) {
-      const projectData = projectDoc.data();
-      if (
-        projectData.vehicleId === storageId ||
-        projectData.customerId === customerId
-      ) {
-        // Fetch TimeLogs for this project
-        const timeLogsRef = collection(
-          db,
-          "businesses",
-          businessId,
-          "Projects",
-          projectDoc.id,
-          "TimeLogs",
-        );
-        const timeLogsSnap = await getDocs(timeLogsRef);
 
-        for (const timeLogDoc of timeLogsSnap.docs) {
-          const timeLogData = timeLogDoc.data();
-          if (timeLogData.minutes) {
-            totalMinutes += timeLogData.minutes;
-          }
+    // Fetch TimeLogs for projects linked to this storage item
+    for (const projectDoc of snap.docs) {
+      const timeLogsRef = collection(
+        db,
+        "businesses",
+        businessId,
+        "Projects",
+        projectDoc.id,
+        "TimeLogs",
+      );
+      const timeLogsSnap = await getDocs(timeLogsRef);
+
+      for (const timeLogDoc of timeLogsSnap.docs) {
+        const timeLogData = timeLogDoc.data();
+        if (timeLogData.minutes) {
+          totalMinutes += timeLogData.minutes;
         }
       }
     }
@@ -231,6 +209,7 @@ async function fetchTotalHours(businessId, storageId, customerId) {
     return "0h 0m";
   }
 }
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Vehicle Creation Form and validation logic
@@ -710,7 +689,7 @@ export default function StoragePage() {
       <div className={notionClasses.dashboardContainer}>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className={notionClasses.header.title}>Storage</h1>
+            <h1 className={notionClasses.header.title}>Vehicles</h1>
             <p className={notionClasses.header.subtitle}>
               Track all your vehicles and their maintenance history in one
               place.
@@ -728,7 +707,7 @@ export default function StoragePage() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search storages..."
+              placeholder="Search vehicles..."
               className={notionClasses.input}
             />
           </div>
@@ -736,7 +715,7 @@ export default function StoragePage() {
 
         {/* Table */}
         {loading ? (
-          <p className="text-sm text-[#787774]">Loading storage...</p>
+          <p className="text-sm text-[#787774]">Loading vehicles...</p>
         ) : items.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No vehicles yet.</p>

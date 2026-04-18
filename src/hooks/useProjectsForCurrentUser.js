@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
-  collection,
-  doc,
-  getDoc,
+  onSnapshot,  // ← New import
   getDocs,
-  orderBy,
   query,
+  collection,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  doc
 } from "firebase/firestore";
 import { auth, db } from "/src/firebase.js";
 
 export function useProjectsForCurrentUser(options = {}) {
-  const {
-    businessId: providedBusinessId,
-    enabled = true,
-  } = options;
-
+  const { businessId: providedBusinessId, enabled = true } = options;
+  const BATCH_SIZE = 10;
+  
   const businessId = useMemo(
     () => providedBusinessId || localStorage.getItem("ccgBusinessId"),
     [providedBusinessId],
@@ -22,45 +23,28 @@ export function useProjectsForCurrentUser(options = {}) {
 
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [currentRole, setCurrentRole] = useState(null);
-  const [refreshTick, setRefreshTick] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  
+  // Track pagination state
+  const lastDocRef = useRef(null); // Last document from current batch (for cursor)
+  const unsubscribeListenerRef = useRef(null); // Real-time listener cleanup
 
-  const refreshProjects = () => {
-    setRefreshTick((prev) => prev + 1);
-  };
-
+  // Initial load: set up real-time listener for first 50
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !businessId) {
       setLoading(false);
-      setError("");
       return;
     }
 
-    let isCancelled = false;
+    setLoading(true);
+    lastDocRef.current = null;
 
-    async function loadProjects() {
-      setLoading(true);
-      setError("");
-
-      if (!businessId) {
-        if (!isCancelled) {
-          setProjects([]);
-          setCurrentRole(null);
-          setError("No business context found. Please sign in again.");
-          setLoading(false);
-        }
-        return;
-      }
-
-      const currentUid = auth.currentUser?.uid;
-      if (!currentUid) {
-        if (!isCancelled) {
-          setProjects([]);
-          setCurrentRole(null);
-          setError("No authenticated user found.");
-          setLoading(false);
-        }
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        setProjects([]);
+        setLoading(false);
         return;
       }
 
@@ -70,71 +54,119 @@ export function useProjectsForCurrentUser(options = {}) {
           "businesses",
           businessId,
           "Employees",
-          currentUid,
+          user.uid
         );
-        const employeeSnap = await getDoc(employeeRef);
 
-        if (!employeeSnap.exists()) {
-          if (!isCancelled) {
-            setProjects([]);
-            setCurrentRole(null);
-            setError("Employee record not found.");
+        const empUnsub = onSnapshot(
+          employeeRef,
+          (empSnap) => {
+            if (!empSnap.exists()) {
+              setProjects([]);
+              setLoading(false);
+              return;
+            }
+
+            const role = empSnap.data().role;
+
+            if (role !== "owner" && role !== "mechanic") {
+              setProjects([]);
+              setLoading(false);
+              return;
+            }
+
+            // Set up real-time listener for first 50 items
+            const projectsUnsub = onSnapshot(
+              query(
+                collection(db, "businesses", businessId, "Projects"),
+                orderBy("updatedAt", "desc"),
+                limit(BATCH_SIZE)
+              ),
+              (snap) => {
+                const newProjects = snap.docs.map(doc => ({
+                  id: doc.id,
+                  ...doc.data(),
+                }));
+                
+                setProjects(newProjects);
+                
+                // Store last document for pagination cursor
+                if (snap.docs.length > 0) {
+                  lastDocRef.current = snap.docs[snap.docs.length - 1];
+                }
+                
+                // Check if there are more items beyond this batch
+                setHasMore(snap.docs.length === BATCH_SIZE);
+                setLoading(false);
+              },
+              (err) => {
+                console.error("Error listening to projects:", err);
+                setError(err.message);
+                setLoading(false);
+              }
+            );
+
+            // Store cleanup function
+            unsubscribeListenerRef.current = projectsUnsub;
+
+            return () => projectsUnsub();
           }
-          return;
-        }
+        );
 
-        const role = employeeSnap.data().role;
-        let projectQuery;
-
-        setCurrentRole(role);
-
-       if (role === "owner" || role === "mechanic") {
-          projectQuery = query(
-            collection(db, "businesses", businessId, "Projects"),
-            orderBy("updatedAt", "desc"),
-          );
-        } else {
-          if (!isCancelled) {
-            setProjects([]);
-          }
-          return;
-        }
-
-        const snap = await getDocs(projectQuery);
-        const projectList = snap.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
-
-        if (!isCancelled) {
-          setProjects(projectList);
-        }
+        return () => empUnsub();
       } catch (err) {
-        if (!isCancelled) {
-          console.error("Failed to load projects:", err);
-          setProjects([]);
-          setCurrentRole(null);
-          setError(err.message || "Failed to load projects.");
-        }
-      } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
+        console.error("Setup error:", err);
+        setError(err.message);
+        setLoading(false);
       }
+    });
+
+    return () => unsubscribeAuth();
+  }, [businessId, enabled]);
+
+  // Load next batch of 50 (appends to existing, doesn't replace)
+  const loadMore = async () => {
+    if (!lastDocRef.current || !hasMore || loadingMore) return;
+
+    setLoadingMore(true);
+    try {
+      const snap = await getDocs(
+        query(
+          collection(db, "businesses", businessId, "Projects"),
+          orderBy("updatedAt", "desc"),
+          startAfter(lastDocRef.current), // Start after last doc
+          limit(BATCH_SIZE)
+        )
+      );
+
+      const nextBatch = snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Append new batch to existing projects
+      setProjects(prev => [...prev, ...nextBatch]);
+
+      // Update cursor for next batch
+      if (snap.docs.length > 0) {
+        lastDocRef.current = snap.docs[snap.docs.length - 1];
+      }
+
+      // Update hasMore flag
+      setHasMore(nextBatch.length === BATCH_SIZE);
+    } catch (err) {
+      console.error("Error loading more projects:", err);
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
     }
-
-    loadProjects();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [businessId, enabled, refreshTick]);
+  };
 
   return {
     projects,
     loading,
+    loadingMore,
     error,
-    currentRole,
-    refreshProjects,
+    hasMore,
+    loadMore, // ← New function for user to call
   };
 }
