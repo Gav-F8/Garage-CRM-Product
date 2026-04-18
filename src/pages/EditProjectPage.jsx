@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase";
+import { useNavigate, useParams } from "react-router-dom";
+import { notionClasses } from "/src/lib/notion-theme";
+import { NavigationBar } from "/src/components/NavigationBar";
+import { db } from "/src/firebase";
 import {
   doc,
   getDoc,
@@ -7,18 +10,18 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { useNavigate, useParams } from "react-router-dom";
-import { notionClasses } from "../lib/notion-theme";
-import { NavigationBar } from "../components/NavigationBar";
 import { STATUS_OPTIONS } from "/src/lib/status.js";
 
 export default function EditProjectPage() {
+  // Route navigation.
   const { projectId } = useParams();
   const navigate = useNavigate();
 
+  // Context from persisted business/session state.
   const businessId = localStorage.getItem("ccgBusinessId");
   const userRole = localStorage.getItem("ccgUserRole");
 
+  // Editable form and request state.
   const [formData, setFormData] = useState({
     title: "",
     status: "",
@@ -31,6 +34,7 @@ export default function EditProjectPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Loads project fields for the edit form.
   useEffect(() => {
     async function loadProject() {
       if (!businessId) {
@@ -40,7 +44,13 @@ export default function EditProjectPage() {
       }
 
       try {
-        const projectRef = doc(db, "businesses", businessId, "Projects", projectId);
+        const projectRef = doc(
+          db,
+          "businesses",
+          businessId,
+          "Projects",
+          projectId,
+        );
         const projectSnap = await getDoc(projectRef);
 
         if (!projectSnap.exists()) {
@@ -50,11 +60,15 @@ export default function EditProjectPage() {
         }
 
         const data = projectSnap.data();
-        
+
         // Normalizes older status values to ensure they are valid options
-        const allowedStatusKeys = new Set(STATUS_OPTIONS.map((status) => status.label));
+        const allowedStatusKeys = new Set(
+          STATUS_OPTIONS.map((status) => status.label),
+        );
         const loadedStatus = data.status || "";
-        const safeStatus = allowedStatusKeys.has(loadedStatus) ? loadedStatus : "";
+        const safeStatus = allowedStatusKeys.has(loadedStatus)
+          ? loadedStatus
+          : "";
 
         setFormData({
           title: data.title || "",
@@ -73,6 +87,7 @@ export default function EditProjectPage() {
     loadProject();
   }, [businessId, projectId]);
 
+  // Generic input handler for controlled fields.
   function handleChange(e) {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -81,13 +96,20 @@ export default function EditProjectPage() {
     }));
   }
 
+  // Persists edits and returns to project detail.
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError("");
 
     try {
-      const projectRef = doc(db, "businesses", businessId, "Projects", projectId);
+      const projectRef = doc(
+        db,
+        "businesses",
+        businessId,
+        "Projects",
+        projectId,
+      );
 
       await updateDoc(projectRef, {
         ...formData,
@@ -102,15 +124,22 @@ export default function EditProjectPage() {
     }
   }
 
+  // Deletes the project after explicit confirmation.
   async function handleDelete() {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this project? This cannot be undone."
+      "Are you sure you want to delete this project? This cannot be undone.",
     );
 
     if (!confirmed) return;
 
     try {
-      const projectRef = doc(db, "businesses", businessId, "Projects", projectId);
+      const projectRef = doc(
+        db,
+        "businesses",
+        businessId,
+        "Projects",
+        projectId,
+      );
       await deleteDoc(projectRef);
       navigate("/jobs");
     } catch (err) {
@@ -118,6 +147,7 @@ export default function EditProjectPage() {
     }
   }
 
+  // Loading and error states.
   if (loading) {
     return (
       <div className={notionClasses.pageContainer}>
@@ -140,6 +170,7 @@ export default function EditProjectPage() {
     );
   }
 
+  // Main edit form.
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
@@ -155,7 +186,9 @@ export default function EditProjectPage() {
         <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 max-w-3xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Title</label>
+              <label className="text-sm font-medium text-[#37352F]">
+                Title
+              </label>
               <input
                 type="text"
                 name="title"
@@ -166,7 +199,9 @@ export default function EditProjectPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Status</label>
+              <label className="text-sm font-medium text-[#37352F]">
+                Status
+              </label>
               <select
                 name="status"
                 value={formData.status}
@@ -183,7 +218,9 @@ export default function EditProjectPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Priority</label>
+              <label className="text-sm font-medium text-[#37352F]">
+                Priority
+              </label>
               <input
                 type="text"
                 name="priority"
@@ -194,7 +231,9 @@ export default function EditProjectPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Customer Name</label>
+              <label className="text-sm font-medium text-[#37352F]">
+                Customer Name
+              </label>
               <input
                 type="text"
                 name="customerName"
@@ -205,7 +244,9 @@ export default function EditProjectPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Car Label</label>
+              <label className="text-sm font-medium text-[#37352F]">
+                Car Label
+              </label>
               <input
                 type="text"
                 name="carLabel"

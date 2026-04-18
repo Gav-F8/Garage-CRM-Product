@@ -1,17 +1,26 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
-import { NavigationBar } from "/src/components/NavigationBar.jsx";
-import { db } from "/src/firebase.js";
-import { doc, getDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { NavigationBar } from "/src/components/NavigationBar";
+import { db } from "/src/firebase";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 export default function EditCustomerPage() {
+  // Route navigation.
   const { customerId } = useParams();
   const navigate = useNavigate();
 
+  // Context from persisted business/session state.
   const businessId = localStorage.getItem("ccgBusinessId");
   const userRole = localStorage.getItem("ccgUserRole");
 
+  // Editable form and request state.
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,6 +32,7 @@ export default function EditCustomerPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Loads customer fields for the edit form.
   useEffect(() => {
     async function loadCustomer() {
       if (!businessId) {
@@ -32,7 +42,13 @@ export default function EditCustomerPage() {
       }
 
       try {
-        const customerRef = doc(db, "businesses", businessId, "Customers", customerId);
+        const customerRef = doc(
+          db,
+          "businesses",
+          businessId,
+          "Customers",
+          customerId,
+        );
         const snap = await getDoc(customerRef);
         if (!snap.exists()) {
           setError("Customer not found.");
@@ -59,19 +75,30 @@ export default function EditCustomerPage() {
     loadCustomer();
   }, [businessId, customerId]);
 
+  // Generic input handler for controlled fields.
   function handleChange(e) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
+  // Persists edits and returns to detail page.
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
     setError("");
 
     try {
-      const customerRef = doc(db, "businesses", businessId, "Customers", customerId);
-      await updateDoc(customerRef, { ...formData, updatedAt: serverTimestamp() });
+      const customerRef = doc(
+        db,
+        "businesses",
+        businessId,
+        "Customers",
+        customerId,
+      );
+      await updateDoc(customerRef, {
+        ...formData,
+        updatedAt: serverTimestamp(),
+      });
       navigate(`/customer/${customerId}`);
     } catch (err) {
       console.error(err);
@@ -81,20 +108,30 @@ export default function EditCustomerPage() {
     }
   }
 
+  // Deletes the customer after explicit confirmation.
   async function handleDelete() {
-    const confirmed = window.confirm("Are you sure you want to delete this customer? This cannot be undone.");
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this customer? This cannot be undone.",
+    );
     if (!confirmed) return;
 
     try {
-      const customerRef = doc(db, "businesses", businessId, "Customers", customerId);
+      const customerRef = doc(
+        db,
+        "businesses",
+        businessId,
+        "Customers",
+        customerId,
+      );
       await deleteDoc(customerRef);
-  navigate("/Customer");
+      navigate("/Customer");
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to delete customer.");
     }
   }
 
+  // Loading and error states.
   if (loading) {
     return (
       <div className={notionClasses.pageContainer}>
@@ -123,40 +160,77 @@ export default function EditCustomerPage() {
     );
   }
 
+  // Main edit form.
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
         <div className="mb-6">
           <h1 className={notionClasses.header.title}>Edit Customer</h1>
-          <p className={notionClasses.header.subtitle}>Update the details for this customer</p>
+          <p className={notionClasses.header.subtitle}>
+            Update the details for this customer
+          </p>
         </div>
 
         <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 max-w-3xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">Name</label>
-              <input name="name" value={formData.name} onChange={handleChange} className={notionClasses.input} />
+              <input
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className={notionClasses.input}
+              />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Email</label>
-              <input name="email" value={formData.email} onChange={handleChange} className={notionClasses.input} />
+              <label className="text-sm font-medium text-[#37352F]">
+                Email
+              </label>
+              <input
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={notionClasses.input}
+              />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Phone</label>
-              <input name="phone" value={formData.phone} onChange={handleChange} className={notionClasses.input} />
+              <label className="text-sm font-medium text-[#37352F]">
+                Phone
+              </label>
+              <input
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className={notionClasses.input}
+              />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Address</label>
-              <input name="address" value={formData.address} onChange={handleChange} className={notionClasses.input} />
+              <label className="text-sm font-medium text-[#37352F]">
+                Address
+              </label>
+              <input
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                className={notionClasses.input}
+              />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">Notes</label>
-              <textarea name="notes" value={formData.notes} onChange={handleChange} className={notionClasses.input} rows={4} />
+              <label className="text-sm font-medium text-[#37352F]">
+                Notes
+              </label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleChange}
+                className={notionClasses.input}
+                rows={4}
+              />
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">
@@ -179,8 +253,16 @@ export default function EditCustomerPage() {
 
             {userRole === "owner" && (
               <div className="pt-6 mt-6 border-t border-[#E0E0E0]">
-                <h2 className="text-sm font-semibold text-[#C53030] mb-3">Danger Zone</h2>
-                <button type="button" onClick={handleDelete} className="h-11 px-4 rounded-lg bg-[#C53030] hover:bg-[#A12828] text-white text-sm font-medium shadow-sm transition-all">Delete Customer</button>
+                <h2 className="text-sm font-semibold text-[#C53030] mb-3">
+                  Danger Zone
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="h-11 px-4 rounded-lg bg-[#C53030] hover:bg-[#A12828] text-white text-sm font-medium shadow-sm transition-all"
+                >
+                  Delete Customer
+                </button>
               </div>
             )}
           </form>

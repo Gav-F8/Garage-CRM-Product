@@ -17,7 +17,7 @@
 // }
 
 import { useState, useEffect, useRef } from "react";
-import { auth,db } from "/src/firebase.js";
+import { auth, db } from "/src/firebase.js";
 import { useNavigate } from "react-router-dom";
 import {
   addDoc,
@@ -30,18 +30,18 @@ import {
   query,
 } from "firebase/firestore";
 
-import { notionClasses } from "/src/lib/notion-theme"; 
+import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 
-// ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // Firestore Helpers
-// ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 async function fetchCustomers(businessId) {
   const querySnapshot = await getDocs(
     query(
       collection(db, "businesses", businessId, "Customers"),
-      orderBy("createdAt", "desc")
-    )
+      orderBy("createdAt", "desc"),
+    ),
   );
   return querySnapshot.docs.map((doc) => ({
     id: doc.id,
@@ -52,19 +52,21 @@ async function fetchCustomers(businessId) {
 async function createCustomer(businessId, data) {
   const currentUserId = auth.currentUser?.uid || null;
   let employeeName = null;
-  
+
   if (currentUserId) {
     employeeName = await fetchEmployeeName(businessId, currentUserId);
   }
-  
+
   const docRef = await addDoc(
-    collection(db, "businesses", businessId, "Customers"), {
-    ...data,
-    createdByEmployeeId: currentUserId,
-    createdByEmployeeName: employeeName,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+    collection(db, "businesses", businessId, "Customers"),
+    {
+      ...data,
+      createdByEmployeeId: currentUserId,
+      createdByEmployeeName: employeeName,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+  );
 
   return { id: docRef.id };
 }
@@ -72,9 +74,15 @@ async function createCustomer(businessId, data) {
 async function fetchEmployeeName(businessId, employeeId) {
   try {
     // Try to get the employee document directly using the ID
-    const employeeRef = doc(db, "businesses", businessId, "Employees", employeeId);
+    const employeeRef = doc(
+      db,
+      "businesses",
+      businessId,
+      "Employees",
+      employeeId,
+    );
     const snap = await getDoc(employeeRef);
-    
+
     if (snap.exists()) {
       const data = snap.data();
       // Try both "Name" (capitalized) and "name" (lowercase)
@@ -83,7 +91,7 @@ async function fetchEmployeeName(businessId, employeeId) {
         return name;
       }
     }
-    
+
     console.warn(`Employee ${employeeId} not found or has no name`);
     return null;
   } catch (error) {
@@ -98,11 +106,14 @@ async function checkHasJob(businessId, customerId) {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
     const q = query(projectsRef);
     const snap = await getDocs(q);
-    
+
     // Check if any project matches the customerId AND has "active" status
     for (const doc of snap.docs) {
       const projectData = doc.data();
-      if (projectData.customerId === customerId && projectData.isActive === true) {
+      if (
+        projectData.customerId === customerId &&
+        projectData.isActive === true
+      ) {
         return true;
       }
     }
@@ -124,9 +135,16 @@ async function fetchTotalHours(businessId, customerId) {
       const projectData = projectDoc.data();
       if (projectData.customerId === customerId) {
         // Fetch TimeLogs for this project
-        const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
+        const timeLogsRef = collection(
+          db,
+          "businesses",
+          businessId,
+          "Projects",
+          projectDoc.id,
+          "TimeLogs",
+        );
         const timeLogsSnap = await getDocs(timeLogsRef);
-        
+
         for (const timeLogDoc of timeLogsSnap.docs) {
           const timeLogData = timeLogDoc.data();
           if (timeLogData.minutes) {
@@ -135,7 +153,7 @@ async function fetchTotalHours(businessId, customerId) {
         }
       }
     }
-    
+
     // Convert minutes to hours and minutes
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -146,39 +164,37 @@ async function fetchTotalHours(businessId, customerId) {
   }
 }
 
-// ─────────────────────────────────────────────
-// Validation
-// ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// New Customer Creation Form and validation logic
+// ══════════════════════════════════════════════════════════════════════════════
+
 function validate(form) {
   const errors = {};
   if (!form.name.trim()) errors.name = "Name is required";
 
-  if (
-    form.email &&
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)
-  ) {
+  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
     errors.email = "Invalid email address";
   }
 
-  if (
-    form.phone &&
-    !/^[\d\s+\-()]{7,20}$/.test(form.phone)
-  ) {
+  if (form.phone && !/^[\d\s+\-()]{7,20}$/.test(form.phone)) {
     errors.phone = "Invalid phone number";
   }
 
   return errors;
 }
 
-// ─────────────────────────────────────────────
-// Input Component (Notion Style)
-// ─────────────────────────────────────────────
-function Input({ label, name, type = "text", value, onChange, error, multiline }) {
+function Input({
+  label,
+  name,
+  type = "text",
+  value,
+  onChange,
+  error,
+  multiline,
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-[#37352F]">
-        {label}
-      </label>
+      <label className="text-sm font-medium text-[#37352F]">{label}</label>
 
       {multiline ? (
         <textarea
@@ -203,9 +219,6 @@ function Input({ label, name, type = "text", value, onChange, error, multiline }
   );
 }
 
-// ─────────────────────────────────────────────
-// Create Button (used in header and empty state)
-// ─────────────────────────────────────────────  
 function CreateButton({ onClick }) {
   return (
     <button
@@ -217,9 +230,9 @@ function CreateButton({ onClick }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// Create Modal
-// ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// New Customer Create Modal
+// ══════════════════════════════════════════════════════════════════════════════
 function CreateModal({ onClose, onCreated, businessId }) {
   const [form, setForm] = useState({
     name: "",
@@ -249,7 +262,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
     try {
       const currentUserId = auth.currentUser?.uid || null;
       let employeeName = null;
-      
+
       if (currentUserId) {
         employeeName = await fetchEmployeeName(businessId, currentUserId);
       }
@@ -264,11 +277,11 @@ function CreateModal({ onClose, onCreated, businessId }) {
 
       onCreated({
         id,
-        name:    form.name.trim(),
-        phone:   form.phone.trim() || null,
-        email:   form.email.trim() || null,
+        name: form.name.trim(),
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
         address: form.address.trim() || null,
-        notes:   form.notes.trim() || null,
+        notes: form.notes.trim() || null,
         createdByEmployeeId: currentUserId,
         createdByEmployeeAcc: employeeName,
       });
@@ -284,11 +297,9 @@ function CreateModal({ onClose, onCreated, businessId }) {
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
       <div className="bg-white w-full max-w-md rounded-xl border border-[#E0E0E0] shadow-lg p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-[#37352F]">New Customer</h2>
 
-        <h2 className="text-lg font-semibold text-[#37352F]">
-          New Customer
-        </h2>
-
+        {/* FULL NAME FORM */}
         <Input
           label="Full Name"
           name="name"
@@ -297,6 +308,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           error={errors.name}
         />
 
+        {/* EMAIL FORM */}
         <Input
           label="Email"
           name="email"
@@ -305,6 +317,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           error={errors.email}
         />
 
+        {/* PHONE FORM */}
         <Input
           label="Phone"
           name="phone"
@@ -313,6 +326,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           error={errors.phone}
         />
 
+        {/* ADDRESS FORM */}
         <Input
           label="Address"
           name="address"
@@ -320,6 +334,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           onChange={handleChange}
         />
 
+        {/* NOTES FORM */}
         <Input
           label="Notes"
           name="notes"
@@ -328,6 +343,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
           multiline
         />
 
+        {/* BUTTONS */}
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
@@ -349,9 +365,9 @@ function CreateModal({ onClose, onCreated, businessId }) {
   );
 }
 
-// ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // Main Page
-// ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 export default function CreateCustomerPage() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
@@ -391,7 +407,7 @@ export default function CreateCustomerPage() {
 
                 const hours = await fetchTotalHours(bizId, customer.id);
                 hoursMap[customer.id] = hours;
-              })
+              }),
             );
 
             setHasJobMap(jobMap);
@@ -411,21 +427,21 @@ export default function CreateCustomerPage() {
       searchInputRef.current.value = "";
     }
   }, [showModal]);
-  
 
   const handleCreated = (newCustomer) => {
     setCustomers((prev) => [newCustomer, ...prev]);
     setSearch(""); // Reset search when new customer is added
     setShowModal(false); // Close modal
-    setHasJobMap(p => ({ ...p, [newCustomer.id]: false }));
-    setTotalHoursMap(p => ({ ...p, [newCustomer.id]: "0h 0m" }));
+    setHasJobMap((p) => ({ ...p, [newCustomer.id]: false }));
+    setTotalHoursMap((p) => ({ ...p, [newCustomer.id]: "0h 0m" }));
   };
 
-  const filtered = customers.filter((c) =>
-  (c.name && c.name.toLowerCase().includes(search.toLowerCase())) ||
-  (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
-  (c.phone && c.phone.includes(search))
-);
+  const filtered = customers.filter(
+    (c) =>
+      (c.name && c.name.toLowerCase().includes(search.toLowerCase())) ||
+      (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
+      (c.phone && c.phone.includes(search)),
+  );
 
   // Pagination logic
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -442,22 +458,19 @@ export default function CreateCustomerPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className={notionClasses.header.title}>
-              Customers
-            </h1>
+            <h1 className={notionClasses.header.title}>Customers</h1>
             <p className={notionClasses.header.subtitle}>
               Manage all your customers and their project history in one place.
             </p>
           </div>
 
-          {customers.length > 0 && loading === false && localStorage.getItem("ccgUserRole") === "owner" && (
-            <CreateButton onClick={() => setShowModal(true)} />
-          )}
-
+          {customers.length > 0 &&
+            loading === false &&
+            localStorage.getItem("ccgUserRole") === "owner" && (
+              <CreateButton onClick={() => setShowModal(true)} />
+            )}
         </div>
 
         {/* Search */}
@@ -479,9 +492,7 @@ export default function CreateCustomerPage() {
 
         {/* Table */}
         {loading ? (
-          <p className="text-sm text-[#787774]">
-            Loading customers...
-          </p>
+          <p className="text-sm text-[#787774]">Loading customers...</p>
         ) : customers.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No customers yet.</p>
@@ -496,7 +507,11 @@ export default function CreateCustomerPage() {
             {/* Items Per Page and Total Count */}
             <div className="flex items-center justify-between px-4 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
-                Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> customers
+                Total:{" "}
+                <span className="font-semibold text-[#37352F]">
+                  {filtered.length}
+                </span>{" "}
+                customers
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-sm text-[#787774]">Show:</label>
@@ -527,23 +542,33 @@ export default function CreateCustomerPage() {
                 </thead>
                 <tbody>
                   {paginatedData.map((c) => (
-                    <tr 
-                      key={c.id} 
+                    <tr
+                      key={c.id}
                       className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
                       onClick={() => navigate(`/customer/${c.id}`)}
                     >
                       <td className={notionClasses.table.cell}>{c.name}</td>
-                      <td className={notionClasses.table.cell}>{c.email || "-"}</td>
-                      <td className={notionClasses.table.cell}>{c.phone || "-"}</td>
-                      <td className={notionClasses.table.cell}>{c.address || "-"}</td>
-                      <td className={notionClasses.table.cell}>{totalHoursMap[c.id] || "0h 0m"}</td>
                       <td className={notionClasses.table.cell}>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          hasJobMap[c.id] 
-                            ? 'bg-red-100 text-red-700' 
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {hasJobMap[c.id] ? 'Yes' : 'No'}
+                        {c.email || "-"}
+                      </td>
+                      <td className={notionClasses.table.cell}>
+                        {c.phone || "-"}
+                      </td>
+                      <td className={notionClasses.table.cell}>
+                        {c.address || "-"}
+                      </td>
+                      <td className={notionClasses.table.cell}>
+                        {totalHoursMap[c.id] || "0h 0m"}
+                      </td>
+                      <td className={notionClasses.table.cell}>
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                            hasJobMap[c.id]
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {hasJobMap[c.id] ? "Yes" : "No"}
                         </span>
                       </td>
                     </tr>
@@ -556,18 +581,29 @@ export default function CreateCustomerPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
                 <div className="text-sm text-[#787774]">
-                  Page <span className="font-semibold text-[#37352F]">{currentPage}</span> of <span className="font-semibold text-[#37352F]">{totalPages}</span>
+                  Page{" "}
+                  <span className="font-semibold text-[#37352F]">
+                    {currentPage}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-[#37352F]">
+                    {totalPages}
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
                     disabled={currentPage === 1}
                     className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     Previous
                   </button>
                   <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
                     disabled={currentPage === totalPages}
                     className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >

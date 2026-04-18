@@ -1,19 +1,20 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
-import {
-  getDoc,
-  doc,
-  getDocs,
-  collection,
-  query,
-} from "firebase/firestore";
-import { NavigationBar } from "/src/components/NavigationBar.jsx";
+import { getDoc, doc, getDocs, collection, query } from "firebase/firestore";
+import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 
+// Fetches the customer document for this detail page.
 async function fetchCustomerDetail(businessId, customerId) {
   try {
-    const customerRef = doc(db, "businesses", businessId, "Customers", customerId);
+    const customerRef = doc(
+      db,
+      "businesses",
+      businessId,
+      "Customers",
+      customerId,
+    );
     const snap = await getDoc(customerRef);
     if (snap.exists()) {
       return { id: snap.id, ...snap.data() };
@@ -25,6 +26,7 @@ async function fetchCustomerDetail(businessId, customerId) {
   }
 }
 
+// Returns all projects that reference the current customer.
 async function fetchRelatedProjects(businessId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
@@ -45,6 +47,7 @@ async function fetchRelatedProjects(businessId, customerId) {
   }
 }
 
+// Aggregates minutes from TimeLogs across all customer projects.
 async function fetchTotalTimeLogs(businessId, customerId) {
   try {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
@@ -55,9 +58,16 @@ async function fetchTotalTimeLogs(businessId, customerId) {
     for (const projectDoc of snap.docs) {
       const projectData = projectDoc.data();
       if (projectData.customerId === customerId) {
-        const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
+        const timeLogsRef = collection(
+          db,
+          "businesses",
+          businessId,
+          "Projects",
+          projectDoc.id,
+          "TimeLogs",
+        );
         const timeLogsSnap = await getDocs(timeLogsRef);
-        
+
         for (const timeLogDoc of timeLogsSnap.docs) {
           const timeLogData = timeLogDoc.data();
           if (timeLogData.minutes) {
@@ -66,7 +76,7 @@ async function fetchTotalTimeLogs(businessId, customerId) {
         }
       }
     }
-    
+
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     return { totalMinutes, hours, minutes };
@@ -77,15 +87,21 @@ async function fetchTotalTimeLogs(businessId, customerId) {
 }
 
 export default function CustomerDetailPage() {
+  // Route and page-level state.
   const { customerId } = useParams();
   const navigate = useNavigate();
   const [customer, setCustomer] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [timeLogs, setTimeLogs] = useState({ totalMinutes: 0, hours: 0, minutes: 0 });
+  const [timeLogs, setTimeLogs] = useState({
+    totalMinutes: 0,
+    hours: 0,
+    minutes: 0,
+  });
 
   // Allow access to customer details for mechanics and other roles.
 
+  // Loads customer data and related project statistics after auth resolves.
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
@@ -107,7 +123,7 @@ export default function CustomerDetailPage() {
         if (customerData) {
           const projects = await fetchRelatedProjects(bizId, customerId);
           setRelatedProjects(projects);
-          
+
           const logs = await fetchTotalTimeLogs(bizId, customerId);
           setTimeLogs(logs);
         }
@@ -121,6 +137,7 @@ export default function CustomerDetailPage() {
     return () => unsubscribe();
   }, [customerId, navigate]);
 
+  // Loading and empty states.
   if (loading) {
     return (
       <div className={notionClasses.pageContainer}>
@@ -149,20 +166,25 @@ export default function CustomerDetailPage() {
     );
   }
 
+  // Main details layout.
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 gap-4">
           <div>
-            <h1 className={notionClasses.header.title}>
-              {customer.name}
-            </h1>
-            <p className={notionClasses.header.subtitle}>
-              Customer Details
-            </p>
+            <h1 className={notionClasses.header.title}>{customer.name}</h1>
+            <p className={notionClasses.header.subtitle}>Customer Details</p>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => navigate("/Customer")}
+              className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+            >
+              ← Back to Customers
+            </button>
+
             {localStorage.getItem("ccgUserRole") === "owner" && (
               <button
                 onClick={() => navigate(`/customer/${customerId}/edit`)}
@@ -171,31 +193,33 @@ export default function CustomerDetailPage() {
                 Edit
               </button>
             )}
-
-            <button
-              onClick={() => navigate("/Customer")}
-              className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
-            >
-              ← Back to Customers
-            </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 animate-fadeIn">
           <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
-            <h2 className="text-lg font-semibold text-[#37352F] mb-4">Customer Information</h2>
-            
+            <h2 className="text-lg font-semibold text-[#37352F] mb-4">
+              Customer Information
+            </h2>
+
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Name</label>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Name
+                </label>
                 <p className="text-sm text-[#37352F]">{customer.name}</p>
               </div>
-              
+
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Email</label>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Email
+                </label>
                 <p className="text-sm text-[#37352F]">
                   {customer.email ? (
-                    <a href={`mailto:${customer.email}`} className="hover:text-blue-600 transition-colors">
+                    <a
+                      href={`mailto:${customer.email}`}
+                      className="hover:text-blue-600 transition-colors"
+                    >
                       {customer.email}
                     </a>
                   ) : (
@@ -205,10 +229,15 @@ export default function CustomerDetailPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Phone</label>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Phone
+                </label>
                 <p className="text-sm text-[#37352F]">
                   {customer.phone ? (
-                    <a href={`tel:${customer.phone}`} className="hover:text-blue-600 transition-colors">
+                    <a
+                      href={`tel:${customer.phone}`}
+                      className="hover:text-blue-600 transition-colors"
+                    >
                       {customer.phone}
                     </a>
                   ) : (
@@ -218,82 +247,128 @@ export default function CustomerDetailPage() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Address</label>
-                <p className="text-sm text-[#37352F]">{customer.address || "-"}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Address
+                </label>
+                <p className="text-sm text-[#37352F]">
+                  {customer.address || "-"}
+                </p>
               </div>
             </div>
           </div>
 
           <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
-            <h2 className="text-lg font-semibold text-[#37352F] mb-4">Additional Information</h2>
-            
+            <h2 className="text-lg font-semibold text-[#37352F] mb-4">
+              Additional Information
+            </h2>
+
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Total Project Hours</label>
-                <p className="text-sm text-[#37352F] font-medium">{timeLogs.hours}h {timeLogs.minutes}m</p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Active Projects</label>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Total Project Hours
+                </label>
                 <p className="text-sm text-[#37352F] font-medium">
-                  {relatedProjects.filter(p => p.status === "active").length} active
+                  {timeLogs.hours}h {timeLogs.minutes}m
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Total Projects</label>
-                <p className="text-sm text-[#37352F] font-medium">{relatedProjects.length} projects</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Active Projects
+                </label>
+                <p className="text-sm text-[#37352F] font-medium">
+                  {relatedProjects.filter((p) => p.status === "active").length}{" "}
+                  active
+                </p>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Notes</label>
-                <p className="text-sm text-[#37352F]">{customer.notes || "-"}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Total Projects
+                </label>
+                <p className="text-sm text-[#37352F] font-medium">
+                  {relatedProjects.length} projects
+                </p>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-[#787774] uppercase">Created By</label>
-                <p className="text-sm text-[#37352F]">{customer.createdByEmployeeAcc || "-"}</p>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Notes
+                </label>
+                <p className="text-sm text-[#37352F]">
+                  {customer.notes || "-"}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-[#787774] uppercase">
+                  Created By
+                </label>
+                <p className="text-sm text-[#37352F]">
+                  {customer.createdByEmployeeAcc || "-"}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 hover:shadow-md transition-shadow duration-200">
-          <h2 className="text-lg font-semibold text-[#37352F] mb-4">Related Projects</h2>
+          <h2 className="text-lg font-semibold text-[#37352F] mb-4">
+            Related Projects
+          </h2>
 
           {relatedProjects.length === 0 ? (
-            <p className="text-sm text-[#787774]">No projects related to this customer.</p>
+            <p className="text-sm text-[#787774]">
+              No projects related to this customer.
+            </p>
           ) : (
             <div className="overflow-hidden rounded-lg border border-[#E0E0E0]">
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-[#F7F6F3]">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#787774] uppercase">Project Title</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#787774] uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#787774] uppercase">Created Date</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[#787774] uppercase">Action</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#787774] uppercase">
+                      Project Title
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#787774] uppercase">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-[#787774] uppercase">
+                      Created Date
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-[#787774] uppercase">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {relatedProjects.map((project) => (
-                    <tr key={project.id} className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer">
-                      <td className="px-4 py-3 text-sm text-[#37352F] font-medium">{project.title || "-"}</td>
+                    <tr
+                      key={project.id}
+                      className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
+                    >
+                      <td className="px-4 py-3 text-sm text-[#37352F] font-medium">
+                        {project.title || "-"}
+                      </td>
                       <td className="px-4 py-3 text-sm">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          project.status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : project.status === "active"
-                            ? "bg-blue-100 text-blue-700"
-                            : project.status === "completed"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}>
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                            project.status === "pending"
+                              ? "bg-yellow-100 text-yellow-700"
+                              : project.status === "active"
+                                ? "bg-blue-100 text-blue-700"
+                                : project.status === "completed"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-gray-100 text-gray-700"
+                          }`}
+                        >
                           {project.status || "-"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-[#37352F]">
                         {project.createdAt
-                          ? new Date(project.createdAt.toDate()).toLocaleDateString()
+                          ? new Date(
+                              project.createdAt.toDate(),
+                            ).toLocaleDateString()
                           : "-"}
                       </td>
                       <td className="px-4 py-3 text-center">

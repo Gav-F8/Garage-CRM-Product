@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
 import {
   addDoc,
@@ -14,13 +14,16 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
-import { statusStyle } from "../lib/status.js";
-import { notionClasses } from "../lib/notion-theme";
-import { NavigationBar } from "../components/NavigationBar";
+import { NavigationBar } from "/src/components/NavigationBar";
+import { notionClasses } from "/src/lib/notion-theme";
+import { statusStyle } from "/src/lib/status.js";
 
 export default function ProjectDetailsPage() {
+  // Route navigation and identifier.
+  const { navigate } = useNavigate();
   const { projectId } = useParams();
 
+  // Project-level data and UI state.
   const [project, setProject] = useState(null);
   const [carDetails, setCarDetails] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -52,6 +55,7 @@ export default function ProjectDetailsPage() {
 
   const businessId = localStorage.getItem("ccgBusinessId");
 
+  // Loads Notes subcollection sorted by newest first.
   async function loadNotes() {
     const notesRef = collection(
       db,
@@ -59,7 +63,7 @@ export default function ProjectDetailsPage() {
       businessId,
       "Projects",
       projectId,
-      "Notes"
+      "Notes",
     );
 
     const notesQuery = query(notesRef, orderBy("createdAt", "desc"));
@@ -73,6 +77,7 @@ export default function ProjectDetailsPage() {
     setNotes(notesList);
   }
 
+  // Loads TimeLogs subcollection sorted by newest first.
   async function loadTimeLogs() {
     const logsRef = collection(
       db,
@@ -80,7 +85,7 @@ export default function ProjectDetailsPage() {
       businessId,
       "Projects",
       projectId,
-      "TimeLogs"
+      "TimeLogs",
     );
 
     const logsQuery = query(logsRef, orderBy("createdAt", "desc"));
@@ -94,6 +99,7 @@ export default function ProjectDetailsPage() {
     setTimeLogs(logsList);
   }
 
+  // Initial project load with related data.
   useEffect(() => {
     async function loadProjectData() {
       setLoading(true);
@@ -118,7 +124,7 @@ export default function ProjectDetailsPage() {
           "businesses",
           businessId,
           "Employees",
-          currentUid
+          currentUid,
         );
         const employeeSnap = await getDoc(employeeRef);
 
@@ -130,7 +136,13 @@ export default function ProjectDetailsPage() {
 
         setCurrentEmployee(employeeSnap.data());
 
-        const projectRef = doc(db, "businesses", businessId, "Projects", projectId);
+        const projectRef = doc(
+          db,
+          "businesses",
+          businessId,
+          "Projects",
+          projectId,
+        );
         const projectSnap = await getDoc(projectRef);
 
         if (!projectSnap.exists()) {
@@ -146,13 +158,13 @@ export default function ProjectDetailsPage() {
         setIsTimerRunning(projectIsActive);
 
         setProject(projectData);
-          if (projectData.carId) {
+        if (projectData.carId) {
           const carRef = doc(
             db,
             "businesses",
             businessId,
             "storage",
-            projectData.carId
+            projectData.carId,
           );
 
           const carSnap = await getDoc(carRef);
@@ -179,24 +191,34 @@ export default function ProjectDetailsPage() {
     loadProjectData();
   }, [businessId, projectId]);
 
+  // Mirrors timer state into local isActive state.
   useEffect(() => {
     setIsActive(isTimerRunning);
   }, [isTimerRunning]);
 
+  // Persists active/inactive timer state to project document.
   useEffect(() => {
     async function syncProjectActiveState() {
       if (!businessId || !projectId || !project) return;
       if (project.isActive === isTimerRunning) return;
 
       try {
-        const projectRef = doc(db, "businesses", businessId, "Projects", projectId);
+        const projectRef = doc(
+          db,
+          "businesses",
+          businessId,
+          "Projects",
+          projectId,
+        );
         await updateDoc(projectRef, {
           isActive: isTimerRunning,
           updatedAt: serverTimestamp(),
         });
 
         setProject((prev) =>
-          prev ? { ...prev, isActive: isTimerRunning, updatedAt: Timestamp.now() } : prev
+          prev
+            ? { ...prev, isActive: isTimerRunning, updatedAt: Timestamp.now() }
+            : prev,
         );
       } catch (err) {
         console.error(err);
@@ -206,6 +228,7 @@ export default function ProjectDetailsPage() {
     syncProjectActiveState();
   }, [businessId, projectId, project, isTimerRunning]);
 
+  // Drives the 1-second stopwatch tick loop.
   useEffect(() => {
     if (isTimerRunning) {
       intervalRef.current = setInterval(() => {
@@ -220,6 +243,7 @@ export default function ProjectDetailsPage() {
     };
   }, [isTimerRunning]);
 
+  // Adds a project note authored by the current employee.
   async function handleAddNote() {
     const trimmedNote = newNote.trim();
     if (!trimmedNote) return;
@@ -240,7 +264,7 @@ export default function ProjectDetailsPage() {
         businessId,
         "Projects",
         projectId,
-        "Notes"
+        "Notes",
       );
 
       await addDoc(notesRef, {
@@ -260,6 +284,7 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  // Creates a manual time log entry.
   async function handleAddTimeLog() {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) {
@@ -287,7 +312,7 @@ export default function ProjectDetailsPage() {
         businessId,
         "Projects",
         projectId,
-        "TimeLogs"
+        "TimeLogs",
       );
 
       await addDoc(logsRef, {
@@ -311,6 +336,7 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  // Converts stopwatch time to a time log entry.
   async function handleSubmitStopwatchLog() {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) {
@@ -335,7 +361,7 @@ export default function ProjectDetailsPage() {
         businessId,
         "Projects",
         projectId,
-        "TimeLogs"
+        "TimeLogs",
       );
 
       const today = new Date();
@@ -362,6 +388,7 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  // Deletes one time log entry after confirmation.
   async function handleDeleteTimeLog(logId) {
     const confirmed = window.confirm("Delete this time log?");
     if (!confirmed) return;
@@ -374,7 +401,7 @@ export default function ProjectDetailsPage() {
         "Projects",
         projectId,
         "TimeLogs",
-        logId
+        logId,
       );
 
       await deleteDoc(logRef);
@@ -385,6 +412,7 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  // Enters inline edit mode for a time log row.
   function startEditingLog(log) {
     setEditingLogId(log.id);
     setEditMinutes(String(log.minutes || ""));
@@ -392,10 +420,11 @@ export default function ProjectDetailsPage() {
     setEditWorkDate(
       log.workDate?.toDate
         ? log.workDate.toDate().toISOString().split("T")[0]
-        : ""
+        : "",
     );
   }
 
+  // Exits inline edit mode and clears temp form values.
   function cancelEditingLog() {
     setEditingLogId(null);
     setEditMinutes("");
@@ -403,6 +432,7 @@ export default function ProjectDetailsPage() {
     setEditWorkDate("");
   }
 
+  // Saves inline edits for a time log row.
   async function handleUpdateTimeLog(logId) {
     if (!editMinutes || Number(editMinutes) <= 0) {
       setError("Please enter a valid number of minutes.");
@@ -422,7 +452,7 @@ export default function ProjectDetailsPage() {
         "Projects",
         projectId,
         "TimeLogs",
-        logId
+        logId,
       );
 
       await updateDoc(logRef, {
@@ -439,6 +469,7 @@ export default function ProjectDetailsPage() {
     }
   }
 
+  // Formatting helpers used across the details and logs UI.
   function formatTimestamp(timestamp) {
     if (!timestamp) return "-";
     if (timestamp.toDate) return timestamp.toDate().toLocaleString();
@@ -491,6 +522,7 @@ export default function ProjectDetailsPage() {
     return project.isActive === true;
   }
 
+  // Main page render with loading/error/empty branches.
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
@@ -514,15 +546,21 @@ export default function ProjectDetailsPage() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => navigate("/jobs")}
+                  className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+                >
+                  ← Back to Jobs
+                </button>
 
                 {isOwner && (
-                  <Link
-                    to={`/projects/${projectId}/edit`}
+                  <button
+                    onClick={() => navigate(`/projects/${projectId}/edit`)}
                     className="h-10 px-4 inline-flex items-center rounded-lg bg-[#37352F] !text-white text-sm font-medium hover:bg-[#474540] transition-all"
                   >
-                    Edit Job
-                  </Link>
+                    Edit
+                  </button>
                 )}
               </div>
             </div>
@@ -554,29 +592,38 @@ export default function ProjectDetailsPage() {
                     <span className="font-medium text-[#37352F]">Car</span>
                     <span className="text-[#787774]">
                       {project.carId ? (
-                      <Link
-                        to={`/storage/${project.carId}`}
-                        className="text-[#2F6FED] hover:underline font-medium">
-                        {project.carLabel || "-"}
-                      </Link>
-                    ) : (
-                      project.carLabel || "-"
-                    )}
+                        <Link
+                          to={`/storage/${project.carId}`}
+                          className="text-[#2F6FED] hover:underline font-medium"
+                        >
+                          {project.carLabel || "-"}
+                        </Link>
+                      ) : (
+                        project.carLabel || "-"
+                      )}
                     </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">License Plate</span>
-                    <span className="text-[#787774]">{carDetails?.plate || "-"}</span>
+                    <span className="font-medium text-[#37352F]">
+                      License Plate
+                    </span>
+                    <span className="text-[#787774]">
+                      {carDetails?.plate || "-"}
+                    </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">VIN</span>
-                    <span className="text-[#787774]">{carDetails?.vin || "-"}</span>
+                    <span className="text-[#787774]">
+                      {carDetails?.vin || "-"}
+                    </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">Description</span>
+                    <span className="font-medium text-[#37352F]">
+                      Description
+                    </span>
                     <span className="text-[#787774] text-right max-w-[60%] break-words whitespace-pre-wrap">
                       {project.description ?? "-"}
                     </span>
@@ -590,28 +637,36 @@ export default function ProjectDetailsPage() {
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text - [#37352F]">Priority</span>
+                    <span className="font-medium text - [#37352F]">
+                      Priority
+                    </span>
                     <span className="text-[#787774] block mt-1">
                       {project.priority || "-"}
                     </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">Created By</span>
+                    <span className="font-medium text-[#37352F]">
+                      Created By
+                    </span>
                     <span className="text-[#787774]">
                       {project.createdByEmployeeName || "Unknown"}
                     </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">Created At</span>
+                    <span className="font-medium text-[#37352F]">
+                      Created At
+                    </span>
                     <span className="text-[#787774]">
                       {formatTimestamp(project.createdAt)}
                     </span>
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">Last Updated</span>
+                    <span className="font-medium text-[#37352F]">
+                      Last Updated
+                    </span>
                     <span className="text-[#787774]">
                       {formatTimestamp(project.updatedAt)}
                     </span>
@@ -634,7 +689,9 @@ export default function ProjectDetailsPage() {
                         </span>
                       ))
                     ) : (
-                      <span className="text-sm text-[#787774]">No mechanics assigned</span>
+                      <span className="text-sm text-[#787774]">
+                        No mechanics assigned
+                      </span>
                     )}
                   </div>
                 </div>
@@ -657,11 +714,15 @@ export default function ProjectDetailsPage() {
                         </p>
                         <div className="flex flex-col gap-1 text-xs text-[#787774]">
                           <span>
-                            <strong className="text-[#37352F]">Created By:</strong>{" "}
+                            <strong className="text-[#37352F]">
+                              Created By:
+                            </strong>{" "}
                             {note.createdByEmployeeName || "Unknown"}
                           </span>
                           <span>
-                            <strong className="text-[#37352F]">Created At:</strong>{" "}
+                            <strong className="text-[#37352F]">
+                              Created At:
+                            </strong>{" "}
                             {formatTimestamp(note.createdAt)}
                           </span>
                         </div>
@@ -757,22 +818,32 @@ export default function ProjectDetailsPage() {
                         ) : (
                           <>
                             <p className="text-sm text-[#37352F] mb-2 break-words whitespace-pre-wrap">
-                              <strong>{log.EmployeeName || "Unknown"}</strong> logged{" "}
-                              <strong>{formatTotalMinutes(Number(log.minutes) || 0)}</strong>
+                              <strong>{log.EmployeeName || "Unknown"}</strong>{" "}
+                              logged{" "}
+                              <strong>
+                                {formatTotalMinutes(Number(log.minutes) || 0)}
+                              </strong>
                             </p>
 
                             <div className="flex flex-col gap-1 text-xs text-[#787774] mb-3">
                               <span>
-                                <strong className="text-[#37352F]">Work Date:</strong>{" "}
+                                <strong className="text-[#37352F]">
+                                  Work Date:
+                                </strong>{" "}
                                 {formatWorkDate(log.workDate)}
                               </span>
                               <span>
-                                <strong className="text-[#37352F]">Created At:</strong>{" "}
+                                <strong className="text-[#37352F]">
+                                  Created At:
+                                </strong>{" "}
                                 {formatTimestamp(log.createdAt)}
                               </span>
                               {log.note ? (
                                 <span className="break-words whitespace-pre-wrap">
-                                  <strong className="text-[#37352F]">Note:</strong> {log.note}
+                                  <strong className="text-[#37352F]">
+                                    Note:
+                                  </strong>{" "}
+                                  {log.note}
                                 </span>
                               ) : null}
                             </div>
@@ -782,7 +853,7 @@ export default function ProjectDetailsPage() {
                                 <button
                                   onClick={() => startEditingLog(log)}
                                   className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
-                                  >
+                                >
                                   Edit
                                 </button>
                                 <button
@@ -865,7 +936,9 @@ export default function ProjectDetailsPage() {
                       disabled={savingStopwatchLog || timerSeconds <= 0}
                       className="mt-3 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
                     >
-                      {savingStopwatchLog ? "Submitting..." : "Submit Timer Log"}
+                      {savingStopwatchLog
+                        ? "Submitting..."
+                        : "Submit Timer Log"}
                     </button>
                   </div>
                 </div>

@@ -46,16 +46,39 @@ import {
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
 
-// ─────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────
 const NHTSA = "https://vpic.nhtsa.dot.gov/api/vehicles";
 
-const VEHICLE_TYPES = ["Car", "Truck", "Motorcycle", "Van", "Bus", "RV", "Trailer", "Other"];
-const COLORS = ["Black","White","Silver","Grey","Blue","Red","Green","Yellow","Orange","Brown","Gold","Beige","Purple","Other"];
+const VEHICLE_TYPES = [
+  "Car",
+  "Truck",
+  "Motorcycle",
+  "Van",
+  "Bus",
+  "RV",
+  "Trailer",
+  "Other",
+];
+const COLORS = [
+  "Black",
+  "White",
+  "Silver",
+  "Grey",
+  "Blue",
+  "Red",
+  "Green",
+  "Yellow",
+  "Orange",
+  "Brown",
+  "Gold",
+  "Beige",
+  "Purple",
+  "Other",
+];
 
 const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: currentYear - 1980 }, (_, i) => String(currentYear - i));
+const YEARS = Array.from({ length: currentYear - 1980 }, (_, i) =>
+  String(currentYear - i),
+);
 
 const BLANK = {
   type: "",
@@ -70,22 +93,28 @@ const BLANK = {
   notes: "",
 };
 
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // Firestore Helpers
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 
 async function fetchEmployeeName(businessId, employeeId) {
   try {
     console.log("Fetching employee name for:", businessId, employeeId);
-    
+
     // Try to get the employee document directly using the ID
-    const employeeRef = doc(db, "businesses", businessId, "Employees", employeeId);
+    const employeeRef = doc(
+      db,
+      "businesses",
+      businessId,
+      "Employees",
+      employeeId,
+    );
     const snap = await getDoc(employeeRef);
-    
+
     console.log("Employee document exists:", snap.exists());
     const data = snap.data();
     console.log("Employee document data:", data);
-    
+
     if (snap.exists() && data) {
       // Try both "Name" (capitalized) and "name" (lowercase)
       const name = data.Name || data.name;
@@ -94,7 +123,7 @@ async function fetchEmployeeName(businessId, employeeId) {
         return name;
       }
     }
-    
+
     console.warn(`Employee ${employeeId} not found or has no name`);
     return null;
   } catch (error) {
@@ -107,20 +136,20 @@ async function fetchStorage(businessId) {
   const snap = await getDocs(
     query(
       collection(db, "businesses", businessId, "storage"),
-      orderBy("createdAt", "desc")
-    )
+      orderBy("createdAt", "desc"),
+    ),
   );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 async function fetchCustomers(businessId) {
   const snap = await getDocs(
     query(
       collection(db, "businesses", businessId, "Customers"),
-      orderBy("name")
-    )
+      orderBy("name"),
+    ),
   );
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 async function checkHasJob(businessId, storageId, customerId) {
@@ -129,21 +158,27 @@ async function checkHasJob(businessId, storageId, customerId) {
     const projectsRef = collection(db, "businesses", businessId, "Projects");
     const q = query(projectsRef);
     const snap = await getDocs(q);
-    
+
     // Check if any project matches the storageId or customerId AND has "active" status
     for (const doc of snap.docs) {
       const projectData = doc.data();
       // Debug logging
-      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+      if (
+        projectData.vehicleId === storageId ||
+        projectData.customerId === customerId
+      ) {
         console.log(`Found project for storage ${storageId}:`, {
           projectId: doc.id,
           vehicleId: projectData.vehicleId,
           customerId: projectData.customerId,
-          isActive: projectData.isActive
+          isActive: projectData.isActive,
         });
       }
-      if ((projectData.vehicleId === storageId || projectData.customerId === customerId) && 
-          projectData.isActive === true) {
+      if (
+        (projectData.vehicleId === storageId ||
+          projectData.customerId === customerId) &&
+        projectData.isActive === true
+      ) {
         return true;
       }
     }
@@ -163,11 +198,21 @@ async function fetchTotalHours(businessId, storageId, customerId) {
     let totalMinutes = 0;
     for (const projectDoc of snap.docs) {
       const projectData = projectDoc.data();
-      if (projectData.vehicleId === storageId || projectData.customerId === customerId) {
+      if (
+        projectData.vehicleId === storageId ||
+        projectData.customerId === customerId
+      ) {
         // Fetch TimeLogs for this project
-        const timeLogsRef = collection(db, "businesses", businessId, "Projects", projectDoc.id, "TimeLogs");
+        const timeLogsRef = collection(
+          db,
+          "businesses",
+          businessId,
+          "Projects",
+          projectDoc.id,
+          "TimeLogs",
+        );
         const timeLogsSnap = await getDocs(timeLogsRef);
-        
+
         for (const timeLogDoc of timeLogsSnap.docs) {
           const timeLogData = timeLogDoc.data();
           if (timeLogData.minutes) {
@@ -176,7 +221,7 @@ async function fetchTotalHours(businessId, storageId, customerId) {
         }
       }
     }
-    
+
     // Convert minutes to hours and minutes
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -187,19 +232,21 @@ async function fetchTotalHours(businessId, storageId, customerId) {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// New Vehicle Creation Form and validation logic
+// ══════════════════════════════════════════════════════════════════════════════
+
 async function createStorage(businessId, data) {
   const currentUserId = auth.currentUser?.uid || null;
   let employeeName = null;
-  
+
   if (currentUserId) {
     employeeName = await fetchEmployeeName(businessId, currentUserId);
   }
-  
+
   // Create carLabel by combining year, make, and model
-  const carLabel = [data.year, data.make, data.model]
-    .filter(Boolean)
-    .join(" ");
-  
+  const carLabel = [data.year, data.make, data.model].filter(Boolean).join(" ");
+
   const ref = await addDoc(
     collection(db, "businesses", businessId, "storage"),
     {
@@ -209,14 +256,11 @@ async function createStorage(businessId, data) {
       createdByEmployeeName: employeeName,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    }
+    },
   );
   return ref.id;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Validation
-// ─────────────────────────────────────────────────────────────
 function validate(form) {
   const e = {};
   if (!form.customerId) e.customerId = "Customer is required";
@@ -232,23 +276,21 @@ function validate(form) {
   return e;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Create Button (shown when list is empty)
-// ─────────────────────────────────────────────────────────────
 function CreateButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-  className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+      className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
     >
       + New Vehicle
     </button>
   );
 }
 
-// ─────────────────────────────────────────────────────────────
-// Create Modal
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// New Vehicle Create Modal
+// ══════════════════════════════════════════════════════════════════════════════
+
 function CreateModal({ businessId, customers, onClose, onCreated }) {
   const [form, setForm] = useState(BLANK);
   const [errors, setErrors] = useState({});
@@ -261,23 +303,25 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
   useEffect(() => {
     if (makes.length) return;
     fetch(`${NHTSA}/GetAllMakes?format=json`)
-      .then(r => r.json())
-      .then(d => setMakes(d.Results.map(m => m.Make_Name).sort()))
+      .then((r) => r.json())
+      .then((d) => setMakes(d.Results.map((m) => m.Make_Name).sort()))
       .catch(() => {});
   }, []);
 
   // Load models when make changes
   useEffect(() => {
     if (!form.make) return setModels([]);
-    fetch(`${NHTSA}/GetModelsForMake/${encodeURIComponent(form.make)}?format=json`)
-      .then(r => r.json())
-      .then(d => setModels(d.Results.map(m => m.Model_Name).sort()))
+    fetch(
+      `${NHTSA}/GetModelsForMake/${encodeURIComponent(form.make)}?format=json`,
+    )
+      .then((r) => r.json())
+      .then((d) => setModels(d.Results.map((m) => m.Model_Name).sort()))
       .catch(() => {});
   }, [form.make]);
 
   const setField = (name, value) => {
-    setForm(p => ({ ...p, [name]: value }));
-    setErrors(p => ({ ...p, [name]: null }));
+    setForm((p) => ({ ...p, [name]: value }));
+    setErrors((p) => ({ ...p, [name]: null }));
   };
 
   const decodeVin = async () => {
@@ -290,14 +334,15 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
     try {
       const res = await fetch(`${NHTSA}/DecodeVin/${vin}?format=json`);
       const data = await res.json();
-      const get = v => data.Results.find(r => r.Variable === v)?.Value || "";
+      const get = (v) =>
+        data.Results.find((r) => r.Variable === v)?.Value || "";
 
       const make = get("Make");
       const model = get("Model");
       const year = get("Model Year");
 
       if (make && model && year) {
-        setForm(p => ({
+        setForm((p) => ({
           ...p,
           make: make.toUpperCase(),
           model,
@@ -313,216 +358,264 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
   };
 
   const handleSubmit = async () => {
-  const e = validate(form);
-  if (Object.keys(e).length) return setErrors(e);
+    const e = validate(form);
+    if (Object.keys(e).length) return setErrors(e);
 
-  setSaving(true);
-  try {
-    const currentUserId = auth.currentUser?.uid || null;
-    let employeeName = null;
-    
-    if (currentUserId) {
-      employeeName = await fetchEmployeeName(businessId, currentUserId);
+    setSaving(true);
+    try {
+      const currentUserId = auth.currentUser?.uid || null;
+      let employeeName = null;
+
+      if (currentUserId) {
+        employeeName = await fetchEmployeeName(businessId, currentUserId);
+      }
+
+      const cleanData = {
+        ...form,
+        plate: form.plate.trim().toUpperCase(),
+        year: Number(form.year),
+        mileage: form.mileage ? Number(form.mileage) : null,
+        vin: form.vin.trim() || null,
+        customerId: form.customerId || null,
+      };
+
+      const id = await createStorage(businessId, cleanData);
+
+      // Create carLabel for display
+      const carLabel = [cleanData.year, cleanData.make, cleanData.model]
+        .filter(Boolean)
+        .join(" ");
+
+      onCreated({
+        id,
+        ...cleanData,
+        carLabel: carLabel || null,
+        createdByEmployeeId: currentUserId,
+        createdByEmployeeAcc: employeeName,
+      });
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setSaving(false);
     }
-
-    const cleanData = {
-      ...form,
-      plate: form.plate.trim().toUpperCase(),
-      year: Number(form.year),
-      mileage: form.mileage ? Number(form.mileage) : null,
-      vin: form.vin.trim() || null,
-      customerId: form.customerId || null,
-    };
-
-    const id = await createStorage(businessId, cleanData);
-    
-    // Create carLabel for display
-    const carLabel = [cleanData.year, cleanData.make, cleanData.model]
-      .filter(Boolean)
-      .join(" ");
-
-    onCreated({ 
-      id, 
-      ...cleanData,
-      carLabel: carLabel || null,
-      createdByEmployeeId: currentUserId,
-      createdByEmployeeAcc: employeeName,
-    });
-    onClose();
-  } catch (err) {
-    console.error(err);
-    setSaving(false);
-  }
-};
+  };
 
   return (
-  <div onClick={onClose} className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
-    <div onClick={e => e.stopPropagation()} className="bg-white w-full max-w-lg rounded-xl border border-[#E0E0E0] shadow-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white w-full max-w-lg rounded-xl border border-[#E0E0E0] shadow-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+      >
+        <h2 className="text-lg font-semibold text-[#37352F]">Add Vehicle</h2>
 
-      <h2 className="text-lg font-semibold text-[#37352F]">Add Vehicle</h2>
-
-      {/* Customer */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-[#37352F]">Customer *</label>
-        <select
-          value={form.customerId}
-          onChange={e => setField("customerId", e.target.value)}
-          className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-        >
-          <option value="">Select a customer</option>
-          {Object.entries(customers).map(([id, name]) => (
-            <option key={id} value={id}>{name}</option>
-          ))}
-        </select>
-        {errors.customerId && <p className="text-xs text-[#C53030]">{errors.customerId}</p>}
-      </div>
-
-      {/* VIN */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-[#37352F]">VIN (optional)</label>
-          <div className="flex gap-2">
-          <input
-            placeholder="17-character VIN"
-            value={form.vin}
-            onChange={e => setField("vin", e.target.value)}
-            className="flex-1 px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          />
-          <button
-            onClick={decodeVin}
-            className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+        {/* CUSTOMER SELECT DROP DOWN MENU */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">
+            Customer *
+          </label>
+          <select
+            value={form.customerId}
+            onChange={(e) => setField("customerId", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
           >
-            Decode VIN
+            <option value="">Select a customer</option>
+            {Object.entries(customers).map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+          {errors.customerId && (
+            <p className="text-xs text-[#C53030]">{errors.customerId}</p>
+          )}
+        </div>
+
+        {/* VIN FORM*/}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">
+            VIN (optional)
+          </label>
+          <div className="flex gap-2">
+            <input
+              placeholder="17-character VIN"
+              value={form.vin}
+              onChange={(e) => setField("vin", e.target.value)}
+              className="flex-1 px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            />
+            <button
+              onClick={decodeVin}
+              className="flex-shrink-0 whitespace-nowrap h-10 px-6 rounded-lg border border-[#E0E0E0] bg-white text-[#37352F] text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
+            >
+              Decode VIN
+            </button>
+          </div>
+          {vinMsg && (
+            <p
+              className={`text-xs ${vinMsg.type === "ok" ? "text-green-600" : "text-[#C53030]"}`}
+            >
+              {vinMsg.text}
+            </p>
+          )}
+          {errors.vin && <p className="text-xs text-[#C53030]">{errors.vin}</p>}
+        </div>
+
+        {/* TYPE SELECT DROP DOWN MENU */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[#37352F]">Type *</label>
+            <select
+              value={form.type}
+              onChange={(e) => setField("type", e.target.value)}
+              className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            >
+              <option value="">Select type</option>
+              {VEHICLE_TYPES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+            </select>
+            {errors.type && (
+              <p className="text-xs text-[#C53030]">{errors.type}</p>
+            )}
+          </div>
+
+          {/* PLATE FORM */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[#37352F]">
+              Plate *
+            </label>
+            <input
+              placeholder="e.g. 192-D-3621"
+              value={form.plate}
+              onChange={(e) => setField("plate", e.target.value)}
+              className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            />
+            {errors.plate && (
+              <p className="text-xs text-[#C53030]">{errors.plate}</p>
+            )}
+          </div>
+        </div>
+
+        {/* MAKE DROP DOWN MENU */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Make *</label>
+          <select
+            value={form.make}
+            onChange={(e) => setField("make", e.target.value)}
+            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+          >
+            <option value="">Select make</option>
+            {makes.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+          {errors.make && (
+            <p className="text-xs text-[#C53030]">{errors.make}</p>
+          )}
+        </div>
+
+        {/* MODEL SELECT DROP DOWN MENU */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[#37352F]">
+              Model *
+            </label>
+            <select
+              value={form.model}
+              onChange={(e) => setField("model", e.target.value)}
+              className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            >
+              <option value="">Select model</option>
+              {models.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+            {errors.model && (
+              <p className="text-xs text-[#C53030]">{errors.model}</p>
+            )}
+          </div>
+
+          {/* YEAR SELECT DROP DOWN MENU */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[#37352F]">Year *</label>
+            <select
+              value={form.year}
+              onChange={(e) => setField("year", e.target.value)}
+              className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            >
+              <option value="">Select year</option>
+              {YEARS.map((y) => (
+                <option key={y}>{y}</option>
+              ))}
+            </select>
+            {errors.year && (
+              <p className="text-xs text-[#C53030]">{errors.year}</p>
+            )}
+          </div>
+        </div>
+
+        {/* COLOR SELECT DROP DOWN MENU */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[#37352F]">
+              Color (optional)
+            </label>
+            <select
+              value={form.color}
+              onChange={(e) => setField("color", e.target.value)}
+              className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            >
+              <option value="">Select color</option>
+              {COLORS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* MILEAGE FORM */}
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-[#37352F]">
+              Mileage (km, optional)
+            </label>
+            <input
+              placeholder="e.g. 50000"
+              type="number"
+              value={form.mileage}
+              onChange={(e) => setField("mileage", e.target.value)}
+              className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
+            />
+            {errors.mileage && (
+              <p className="text-xs text-[#C53030]">{errors.mileage}</p>
+            )}
+          </div>
+        </div>
+
+        {/* BUTTONS */}
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            onClick={onClose}
+            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
-        {vinMsg && (
-          <p className={`text-xs ${vinMsg.type === "ok" ? "text-green-600" : "text-[#C53030]"}`}>
-            {vinMsg.text}
-          </p>
-        )}
-        {errors.vin && <p className="text-xs text-[#C53030]">{errors.vin}</p>}
-      </div>
-
-      {/* Type + Plate */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Type *</label>
-          <select
-            value={form.type}
-            onChange={e => setField("type", e.target.value)}
-            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          >
-            <option value="">Select type</option>
-            {VEHICLE_TYPES.map(t => <option key={t}>{t}</option>)}
-          </select>
-          {errors.type && <p className="text-xs text-[#C53030]">{errors.type}</p>}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Plate *</label>
-          <input
-            placeholder="e.g. 192-D-3621"
-            value={form.plate}
-            onChange={e => setField("plate", e.target.value)}
-            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          />
-          {errors.plate && <p className="text-xs text-[#C53030]">{errors.plate}</p>}
-        </div>
-      </div>
-
-      {/* Make */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-[#37352F]">Make *</label>
-        <select
-          value={form.make}
-          onChange={e => setField("make", e.target.value)}
-          className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-        >
-          <option value="">Select make</option>
-          {makes.map(m => <option key={m}>{m}</option>)}
-        </select>
-        {errors.make && <p className="text-xs text-[#C53030]">{errors.make}</p>}
-      </div>
-
-      {/* Model + Year */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Model *</label>
-          <select
-            value={form.model}
-            onChange={e => setField("model", e.target.value)}
-            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          >
-            <option value="">Select model</option>
-            {models.map(m => <option key={m}>{m}</option>)}
-          </select>
-          {errors.model && <p className="text-xs text-[#C53030]">{errors.model}</p>}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Year *</label>
-          <select
-            value={form.year}
-            onChange={e => setField("year", e.target.value)}
-            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          >
-            <option value="">Select year</option>
-            {YEARS.map(y => <option key={y}>{y}</option>)}
-          </select>
-          {errors.year && <p className="text-xs text-[#C53030]">{errors.year}</p>}
-        </div>
-      </div>
-
-      {/* Color + Mileage */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Color (optional)</label>
-          <select
-            value={form.color}
-            onChange={e => setField("color", e.target.value)}
-            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          >
-            <option value="">Select color</option>
-            {COLORS.map(c => <option key={c}>{c}</option>)}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Mileage (km, optional)</label>
-          <input
-            placeholder="e.g. 50000"
-            type="number"
-            value={form.mileage}
-            onChange={e => setField("mileage", e.target.value)}
-            className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all"
-          />
-          {errors.mileage && <p className="text-xs text-[#C53030]">{errors.mileage}</p>}
-        </div>
-      </div>
-
-      {/* Buttons */}
-      <div className="flex justify-end gap-3 pt-2">
-        <button
-          onClick={onClose}
-          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={saving}
-          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
       </div>
     </div>
-  </div>
-);
+  );
 }
 
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // Main Page
-// ─────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 export default function StoragePage() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
@@ -551,27 +644,35 @@ export default function StoragePage() {
           .then(async ([storageData, customerData]) => {
             setItems(storageData);
             const map = {};
-            customerData.forEach(c => (map[c.id] = c.name));
+            customerData.forEach((c) => (map[c.id] = c.name));
             console.log("customers map:", map);
             setCustomers(map);
-            
+
             // Check for jobs and calculate hours for all items in parallel
             const jobMap = {};
             const hoursMap = {};
-            
+
             // Process all items and fetch their job status and hours
             await Promise.all(
               storageData.map(async (item) => {
                 // Check if this storage item has any active projects
-                const hasJob = await checkHasJob(bizId, item.id, item.customerId);
+                const hasJob = await checkHasJob(
+                  bizId,
+                  item.id,
+                  item.customerId,
+                );
                 jobMap[item.id] = hasJob;
-                
+
                 // Get total hours for this storage item
-                const hours = await fetchTotalHours(bizId, item.id, item.customerId);
+                const hours = await fetchTotalHours(
+                  bizId,
+                  item.id,
+                  item.customerId,
+                );
                 hoursMap[item.id] = hours;
-              })
+              }),
             );
-            
+
             setHasJobMap(jobMap);
             setTotalHoursMap(hoursMap);
           })
@@ -585,10 +686,10 @@ export default function StoragePage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return items.filter(i =>
+    return items.filter((i) =>
       `${i.make || ""} ${i.model || ""} ${i.plate || ""} ${i.type || ""}`
         .toLowerCase()
-        .includes(q)
+        .includes(q),
     );
   }, [items, search]);
 
@@ -607,16 +708,12 @@ export default function StoragePage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-
-
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className={notionClasses.header.title}>
-              Storage
-            </h1>
+            <h1 className={notionClasses.header.title}>Storage</h1>
             <p className={notionClasses.header.subtitle}>
-              Track all your vehicles and their maintenance history in one place.
+              Track all your vehicles and their maintenance history in one
+              place.
             </p>
           </div>
 
@@ -630,7 +727,7 @@ export default function StoragePage() {
           <div className="mb-6">
             <input
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search storages..."
               className={notionClasses.input}
             />
@@ -639,9 +736,7 @@ export default function StoragePage() {
 
         {/* Table */}
         {loading ? (
-          <p className="text-sm text-[#787774]">
-            Loading storage...
-          </p>
+          <p className="text-sm text-[#787774]">Loading storage...</p>
         ) : items.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No vehicles yet.</p>
@@ -654,7 +749,11 @@ export default function StoragePage() {
             {/* Items Per Page and Total Count */}
             <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
-                Total: <span className="font-semibold text-[#37352F]">{filtered.length}</span> vehicles
+                Total:{" "}
+                <span className="font-semibold text-[#37352F]">
+                  {filtered.length}
+                </span>{" "}
+                vehicles
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-sm text-[#787774]">Show:</label>
@@ -683,25 +782,33 @@ export default function StoragePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedData.map(item => (
-                    <tr 
-                      key={item.id} 
+                  {paginatedData.map((item) => (
+                    <tr
+                      key={item.id}
                       className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
                       onClick={() => {
                         navigate(`/storage/${item.id}`);
                       }}
                     >
-                      <td className={notionClasses.table.cell}>{item.year} {item.make} {item.model}</td>
-                      <td className={notionClasses.table.cell}>{item.plate}</td>
-                      <td className={notionClasses.table.cell}>{customers[item.customerId] || "-"}</td>
-                      <td className={notionClasses.table.cell}>{totalHoursMap[item.id] || "0h 0m"}</td>
                       <td className={notionClasses.table.cell}>
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                          hasJobMap[item.id] 
-                            ? 'bg-red-100 text-red-700' 
-                            : 'bg-green-100 text-green-700'
-                        }`}>
-                          {hasJobMap[item.id] ? 'Yes' : 'No'}
+                        {item.year} {item.make} {item.model}
+                      </td>
+                      <td className={notionClasses.table.cell}>{item.plate}</td>
+                      <td className={notionClasses.table.cell}>
+                        {customers[item.customerId] || "-"}
+                      </td>
+                      <td className={notionClasses.table.cell}>
+                        {totalHoursMap[item.id] || "0h 0m"}
+                      </td>
+                      <td className={notionClasses.table.cell}>
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                            hasJobMap[item.id]
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {hasJobMap[item.id] ? "Yes" : "No"}
                         </span>
                       </td>
                     </tr>
@@ -714,18 +821,29 @@ export default function StoragePage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between px-4 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
                 <div className="text-sm text-[#787774]">
-                  Page <span className="font-semibold text-[#37352F]">{currentPage}</span> of <span className="font-semibold text-[#37352F]">{totalPages}</span>
+                  Page{" "}
+                  <span className="font-semibold text-[#37352F]">
+                    {currentPage}
+                  </span>{" "}
+                  of{" "}
+                  <span className="font-semibold text-[#37352F]">
+                    {totalPages}
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }
                     disabled={currentPage === 1}
                     className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     Previous
                   </button>
                   <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }
                     disabled={currentPage === totalPages}
                     className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
@@ -743,9 +861,9 @@ export default function StoragePage() {
             customers={customers}
             onClose={() => setShowModal(false)}
             onCreated={(newItem) => {
-              setItems(p => [newItem, ...p]);
-              setHasJobMap(p => ({ ...p, [newItem.id]: false }));
-              setTotalHoursMap(p => ({ ...p, [newItem.id]: "0h 0m" }));
+              setItems((p) => [newItem, ...p]);
+              setHasJobMap((p) => ({ ...p, [newItem.id]: false }));
+              setTotalHoursMap((p) => ({ ...p, [newItem.id]: "0h 0m" }));
             }}
           />
         )}

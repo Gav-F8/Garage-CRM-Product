@@ -24,6 +24,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -42,6 +43,9 @@ import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { notionClasses } from "../lib/notion-theme";
 import { STATUS_OPTIONS } from "../lib/status";
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Firestore Helpers
+// ══════════════════════════════════════════════════════════════════════════════
 async function fetchBusinessId(userUid) {
   const snap = await getDocs(
     query(collection(db, "businesses"), where("uid", "==", userUid)),
@@ -71,7 +75,9 @@ async function fetchVehicles(businessId) {
 }
 
 async function fetchMechanics(businessId) {
-  const snap = await getDocs(collection(db, "businesses", businessId, "Employees"));
+  const snap = await getDocs(
+    collection(db, "businesses", businessId, "Employees"),
+  );
 
   return snap.docs
     .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
@@ -89,7 +95,13 @@ async function fetchMechanics(businessId) {
 async function fetchEmployeeName(businessId, employeeId) {
   if (!employeeId) return null;
 
-  const employeeRef = doc(db, "businesses", businessId, "Employees", employeeId);
+  const employeeRef = doc(
+    db,
+    "businesses",
+    businessId,
+    "Employees",
+    employeeId,
+  );
   const snap = await getDoc(employeeRef);
 
   if (!snap.exists()) return null;
@@ -136,7 +148,14 @@ function CreateButton({ onClick }) {
 // New Job Creation Form
 // ══════════════════════════════════════════════════════════════════════════════
 
-function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCreate }) {
+function CreateModal({
+  customers,
+  vehicles,
+  mechanics,
+  submitting,
+  onClose,
+  onCreate,
+}) {
   const [form, setForm] = useState(INITIAL_JOB_FORM);
   const [errors, setErrors] = useState({});
   const [selectedMechanicId, setSelectedMechanicId] = useState("");
@@ -159,7 +178,9 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
   const removeMechanic = (mechanicId) => {
     setForm((prev) => ({
       ...prev,
-      assignedMechanicIds: prev.assignedMechanicIds.filter((id) => id !== mechanicId),
+      assignedMechanicIds: prev.assignedMechanicIds.filter(
+        (id) => id !== mechanicId,
+      ),
     }));
   };
 
@@ -206,13 +227,15 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      onClick={onClose}
+    >
       <div
         className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-xl border border-[#E0E0E0] bg-white p-6 shadow-lg"
         onClick={(event) => event.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-[#37352F]">Create New Job</h2>
-
 
         {/* TITLE FORM */}
         <div className="flex flex-col gap-1">
@@ -223,12 +246,16 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
             placeholder="e.g. Brake pad replacement"
             className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
           />
-          {errors.title && <p className="text-xs text-[#C53030]">{errors.title}</p>}
+          {errors.title && (
+            <p className="text-xs text-[#C53030]">{errors.title}</p>
+          )}
         </div>
 
         {/* CUSTOMER SELECT DROP DOWN MENU */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Customer *</label>
+          <label className="text-sm font-medium text-[#37352F]">
+            Customer *
+          </label>
           <select
             value={form.customerId}
             onChange={(event) => setField("customerId", event.target.value)}
@@ -241,19 +268,25 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
               </option>
             ))}
           </select>
-          {errors.customerId && <p className="text-xs text-[#C53030]">{errors.customerId}</p>}
+          {errors.customerId && (
+            <p className="text-xs text-[#C53030]">{errors.customerId}</p>
+          )}
         </div>
 
         {/* VEHICLE SELECT DROP DOWN MENU */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Vehicle *</label>
+          <label className="text-sm font-medium text-[#37352F]">
+            Vehicle *
+          </label>
           <select
             value={form.carId}
             onChange={(event) => setField("carId", event.target.value)}
             disabled={!form.customerId || filteredVehicles.length === 0}
             className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {!form.customerId && <option value="">Select customer first</option>}
+            {!form.customerId && (
+              <option value="">Select customer first</option>
+            )}
             {form.customerId && filteredVehicles.length === 0 && (
               <option value="">No vehicles for this customer</option>
             )}
@@ -268,13 +301,17 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
               </option>
             ))}
           </select>
-          {errors.carId && <p className="text-xs text-[#C53030]">{errors.carId}</p>}
+          {errors.carId && (
+            <p className="text-xs text-[#C53030]">{errors.carId}</p>
+          )}
         </div>
 
         {/*STATUS SELECT DROP DOWN MENU */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-[#37352F]">Status *</label>
+            <label className="text-sm font-medium text-[#37352F]">
+              Status *
+            </label>
             <select
               value={form.status}
               onChange={(event) => setField("status", event.target.value)}
@@ -287,27 +324,36 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
                 </option>
               ))}
             </select>
-            {errors.status && <p className="text-xs text-[#C53030]">{errors.status}</p>}
+            {errors.status && (
+              <p className="text-xs text-[#C53030]">{errors.status}</p>
+            )}
           </div>
 
-        {/* MECHANIC SELECT DROP DOWN MENU */}
+          {/* MECHANIC SELECT DROP DOWN MENU */}
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-[#37352F]">Assigned Mechanic *</label>
+            <label className="text-sm font-medium text-[#37352F]">
+              Assigned Mechanic *
+            </label>
             <select
               value={selectedMechanicId}
               onChange={(event) => addMechanic(event.target.value)}
               className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
             >
               <option value="">Select mechanic</option>
-              {mechanics.filter((mechanic) => !form.assignedMechanicIds.includes(mechanic.id)).map((mechanic) => (
-                <option key={mechanic.id} value={mechanic.id}>
-                  {mechanic.name || mechanic.id}
-                </option>
-              ))}
-
+              {mechanics
+                .filter(
+                  (mechanic) => !form.assignedMechanicIds.includes(mechanic.id),
+                )
+                .map((mechanic) => (
+                  <option key={mechanic.id} value={mechanic.id}>
+                    {mechanic.name || mechanic.id}
+                  </option>
+                ))}
             </select>
             {errors.assignedMechanicIds && (
-              <p className="text-xs text-[#C53030]">{errors.assignedMechanicIds}</p>
+              <p className="text-xs text-[#C53030]">
+                {errors.assignedMechanicIds}
+              </p>
             )}
 
             {/* ASSIGNED MECHANIC TAG */}
@@ -332,10 +378,10 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
                 );
               })}
             </div>
-
           </div>
         </div>
 
+        {/* BUTTONS */}
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
@@ -356,8 +402,9 @@ function CreateModal({ customers, vehicles, mechanics, submitting, onClose, onCr
   );
 }
 
-
-
+// ══════════════════════════════════════════════════════════════════════════════
+// Main Page
+// ══════════════════════════════════════════════════════════════════════════════
 export default function ProjectPage() {
   const [businessId, setBusinessId] = useState(null);
   const [customers, setCustomers] = useState([]);
@@ -369,22 +416,19 @@ export default function ProjectPage() {
   const [submitError, setSubmitError] = useState("");
   const [showModal, setShowModal] = useState(false);
 
-  const {
-    projects,
-    loading,
-    error,
-    refreshProjects,
-  } = useProjectsForCurrentUser({
-    businessId,
-    enabled: Boolean(businessId),
-  });
+  const { projects, loading, error, refreshProjects } =
+    useProjectsForCurrentUser({
+      businessId,
+      enabled: Boolean(businessId),
+    });
 
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Fetch necessary data for job creation form (customers, vehicles, mechanics)
-// ══════════════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════════════
+  // Fetch necessary data for job creation form (customers, vehicles, mechanics)
+  // ══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (!user) {
@@ -394,7 +438,8 @@ export default function ProjectPage() {
 
       try {
         const bizId =
-          (await fetchBusinessId(user.uid)) || localStorage.getItem("ccgBusinessId");
+          (await fetchBusinessId(user.uid)) ||
+          localStorage.getItem("ccgBusinessId");
         setBusinessId(bizId);
 
         if (!bizId) {
@@ -439,8 +484,12 @@ export default function ProjectPage() {
         currentUser.uid,
       );
 
-      const selectedCustomer = customers.find((customer) => customer.id === payload.customerId);
-      const selectedVehicle = vehicles.find((vehicle) => vehicle.id === payload.carId);
+      const selectedCustomer = customers.find(
+        (customer) => customer.id === payload.customerId,
+      );
+      const selectedVehicle = vehicles.find(
+        (vehicle) => vehicle.id === payload.carId,
+      );
       const selectedMechanics = mechanics.filter((mechanic) =>
         payload.assignedMechanicIds.includes(mechanic.id),
       );
@@ -487,7 +536,11 @@ export default function ProjectPage() {
         collection(db, "businesses", businessId, "Projects"),
         jobData,
       );
+      
+      //Redirects to newly created job page (Interupts setSubmitMessage)
+      navigate(`/projects/${jobRef.id}`);
 
+      // Shows success message if not already redirected
       setSubmitMessage(`Project created successfully! ID: ${jobRef.id}.`);
       refreshProjects();
       setCurrentPage(1);
@@ -523,7 +576,6 @@ export default function ProjectPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -554,13 +606,19 @@ export default function ProjectPage() {
         {!loading && projects.length > 0 && (
           <div className="flex items-center justify-between mb-0 px-4 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
             <div className="text-sm text-[#787774]">
-              Total: <span className="font-semibold text-[#37352F]">{projects.length}</span> Jobs
+              Total:{" "}
+              <span className="font-semibold text-[#37352F]">
+                {projects.length}
+              </span>{" "}
+              Jobs
             </div>
             <div className="flex items-center gap-3">
               <label className="text-sm text-[#787774]">Show:</label>
               <select
                 value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
                 className="px-3 py-1 text-sm text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] transition-all"
               >
                 <option value={10}>10</option>
@@ -572,7 +630,13 @@ export default function ProjectPage() {
         )}
 
         {/* Projects List */}
-        <div className={!loading && projects.length > 0 ? "border border-t-0 border-[#E0E0E0] rounded-b-xl shadow-sm overflow-hidden" : ""}>
+        <div
+          className={
+            !loading && projects.length > 0
+              ? "border border-t-0 border-[#E0E0E0] rounded-b-xl shadow-sm overflow-hidden"
+              : ""
+          }
+        >
           <ProjectsList
             projects={paginatedProjects}
             loading={loading}
@@ -588,18 +652,25 @@ export default function ProjectPage() {
         {!loading && projects.length > 0 && totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
             <div className="text-sm text-[#787774]">
-              Page <span className="font-semibold text-[#37352F]">{currentPage}</span> of <span className="font-semibold text-[#37352F]">{totalPages}</span>
+              Page{" "}
+              <span className="font-semibold text-[#37352F]">
+                {currentPage}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-[#37352F]">{totalPages}</span>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
                 className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 Previous
               </button>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                }
                 disabled={currentPage === totalPages}
                 className="px-4 py-2 text-sm font-medium text-[#37352F] bg-white border border-[#E0E0E0] rounded-lg hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
@@ -613,7 +684,9 @@ export default function ProjectPage() {
         {!loading && projects.length === 0 && (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No Jobs found.</p>
-            {!creationDataLoading && <CreateButton onClick={() => setShowModal(true)} />}
+            {!creationDataLoading && (
+              <CreateButton onClick={() => setShowModal(true)} />
+            )}
           </div>
         )}
 
