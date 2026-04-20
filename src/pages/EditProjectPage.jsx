@@ -17,17 +17,16 @@ import {
 } from "firebase/firestore";
 import { STATUS_OPTIONS } from "/src/lib/status.js";
 
+const PRIORITY_OPTIONS = ["low", "medium", "high"];
+
 export default function EditProjectPage() {
-  // Route navigation.
   const { projectId } = useParams();
   const navigate = useNavigate();
 
-  // Context from persisted business/session state.
   const businessId = localStorage.getItem("ccgBusinessId");
   const userRole = localStorage.getItem("ccgUserRole");
   const { customers, loading: customersLoading } = useCustomersForCurrentUser(businessId);
 
-  // Editable form and request state.
   const [formData, setFormData] = useState({
     title: "",
     status: "",
@@ -35,13 +34,13 @@ export default function EditProjectPage() {
     customerId: "",
     customerName: "",
     carLabel: "",
+    description: "",
   });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Loads project fields for the edit form.
   useEffect(() => {
     async function loadProject() {
       if (!businessId) {
@@ -76,21 +75,26 @@ export default function EditProjectPage() {
 
         const data = projectSnap.data();
 
-        // Normalizes older status values to ensure they are valid options
         const allowedStatusKeys = new Set(
-          STATUS_OPTIONS.map((status) => status.label),
+          STATUS_OPTIONS.map((status) => status.key),
         );
         const loadedStatus = data.status || "";
         const safeStatus = allowedStatusKeys.has(loadedStatus)
           ? loadedStatus
           : "";
 
+        const loadedPriority = (data.priority || "").toLowerCase();
+        const safePriority = PRIORITY_OPTIONS.includes(loadedPriority)
+          ? loadedPriority
+          : "";
+
         setFormData({
           title: data.title || "",
           status: safeStatus,
-          priority: data.priority || "",
+          priority: safePriority,
           customerName: data.customerName || "",
           carLabel: data.carLabel || "",
+          description: data.description || "",
         });
 
       } catch (err) {
@@ -103,7 +107,6 @@ export default function EditProjectPage() {
     loadProject();
   }, [businessId, projectId]);
 
-  // Generic input handler for controlled fields.
   function handleChange(e) {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -112,7 +115,6 @@ export default function EditProjectPage() {
     }));
   }
 
-  // Persists edits and returns to project detail.
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
@@ -140,7 +142,6 @@ export default function EditProjectPage() {
     }
   }
 
-  // Deletes the project after explicit confirmation.
   async function handleDelete() {
     const confirmed = window.confirm(
       "Are you sure you want to delete this project? This cannot be undone.",
@@ -163,7 +164,6 @@ export default function EditProjectPage() {
     }
   }
 
-  // Loading and error states.
   if (loading) {
     return (
       <div className={notionClasses.pageContainer}>
@@ -186,7 +186,6 @@ export default function EditProjectPage() {
     );
   }
 
-  // Main edit form.
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
@@ -237,13 +236,17 @@ export default function EditProjectPage() {
               <label className="text-sm font-medium text-[#37352F]">
                 Priority
               </label>
-              <input
-                type="text"
+              <select
                 name="priority"
                 value={formData.priority}
                 onChange={handleChange}
                 className={notionClasses.input}
-              />
+              >
+                <option value="">Select priority</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
             </div>
 
             <div className="space-y-2">
@@ -285,6 +288,20 @@ export default function EditProjectPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[#37352F]">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={5}
+                placeholder="Describe the work needed for this project..."
+                className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all resize-none"
+              />
+            </div>
+
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="submit"
@@ -297,7 +314,7 @@ export default function EditProjectPage() {
               <button
                 type="button"
                 onClick={() => navigate(`/projects/${projectId}`)}
-                className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
+                className="h-11 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
               >
                 Cancel
               </button>
