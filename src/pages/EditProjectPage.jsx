@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
+import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { db } from "/src/firebase";
 import {
   doc,
   getDoc,
+  getDocs,
   updateDoc,
   deleteDoc,
+  collection,
+  query,
+  orderBy,
   serverTimestamp,
 } from "firebase/firestore";
 import { STATUS_OPTIONS } from "/src/lib/status.js";
@@ -20,12 +25,14 @@ export default function EditProjectPage() {
   // Context from persisted business/session state.
   const businessId = localStorage.getItem("ccgBusinessId");
   const userRole = localStorage.getItem("ccgUserRole");
+  const { customers, loading: customersLoading } = useCustomersForCurrentUser(businessId);
 
   // Editable form and request state.
   const [formData, setFormData] = useState({
     title: "",
     status: "",
     priority: "",
+    customerId: "",
     customerName: "",
     carLabel: "",
   });
@@ -51,7 +58,15 @@ export default function EditProjectPage() {
           "Projects",
           projectId,
         );
-        const projectSnap = await getDoc(projectRef);
+        const [projectSnap, customersSnap] = await Promise.all([
+          getDoc(projectRef),
+          getDocs(
+            query(
+              collection(db, "businesses", businessId, "Customers"),
+              orderBy("name")
+            )
+          ),
+        ]);
 
         if (!projectSnap.exists()) {
           setError("Project not found.");
@@ -77,6 +92,7 @@ export default function EditProjectPage() {
           customerName: data.customerName || "",
           carLabel: data.carLabel || "",
         });
+
       } catch (err) {
         setError(err.message);
       } finally {
@@ -232,15 +248,28 @@ export default function EditProjectPage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
-                Customer Name
+                Customer
               </label>
-              <input
-                type="text"
-                name="customerName"
-                value={formData.customerName}
-                onChange={handleChange}
-                className={notionClasses.input}
-              />
+              <select
+                value={formData.customerId}
+                onChange={(e) => {
+                  const customerId = e.target.value;
+                  const selectedCustomer = customers.find(c => c.id === customerId);
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerId: customerId,
+                    customerName: selectedCustomer.name || "",
+                  }));
+                }}
+              className={notionClasses.input}
+              >
+                <option value="">Select customer</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name || customer.email || customer.id}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">

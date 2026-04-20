@@ -2,12 +2,18 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar";
+import { VEHICLE_TYPES, NHTSA, } from "/src/lib/vehicle-data.js";
+import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { db } from "/src/firebase";
 import {
   doc,
   getDoc,
+  getDocs,
   updateDoc,
   deleteDoc,
+  collection,
+  query,
+  orderBy,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -33,10 +39,12 @@ export default function EditCarPage() {
     vin: "",
     notes: "",
     customerId: "",
+    customerName: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { customers } = useCustomersForCurrentUser(businessId);
 
   // Loads vehicle fields for the edit form.
   useEffect(() => {
@@ -68,7 +76,9 @@ export default function EditCarPage() {
           vin: d.vin || "",
           notes: d.notes || "",
           customerId: d.customerId || "",
+          customerName: d.customerName || "",
         });
+
       } catch (err) {
         console.error(err);
         setError(err.message || "Failed to load vehicle.");
@@ -212,17 +222,26 @@ export default function EditCarPage() {
               </div>
             </div>
 
+            {/* TYPE DROP DOWN MENU */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#37352F]">
                   Type
                 </label>
-                <input
+                <select
                   name="type"
                   value={formData.type}
                   onChange={handleChange}
                   className={notionClasses.input}
-                />
+                >
+                  <option value="">Select type</option>
+                  {VEHICLE_TYPES.map((t) => (
+                    <option key={t} value={t}> 
+                      {t}
+                    </option>
+                  ))}
+              </select>
+                
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#37352F]">
@@ -251,10 +270,11 @@ export default function EditCarPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#37352F]">
-                  Mileage (km)
+                  Mileage (km, optional)
                 </label>
                 <input
                   name="mileage"
+                  placeholder="e.g. 50000"
                   value={formData.mileage}
                   onChange={handleChange}
                   className={notionClasses.input}
@@ -273,16 +293,31 @@ export default function EditCarPage() {
               </div>
             </div>
 
+            {/* CUSTOMER DROP DOWN MENU */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
-                Customer ID
+                Customer
               </label>
-              <input
-                name="customerId"
+              <select
                 value={formData.customerId}
-                onChange={handleChange}
-                className={notionClasses.input}
-              />
+                onChange={(e) => {
+                  const customerId = e.target.value;
+                  const selectedCustomer = customers.find(c => c.id === customerId);
+                  setFormData((prev) => ({
+                    ...prev,
+                    customerId: customerId,
+                    customerName: selectedCustomer.name || "",
+                  }));
+                }}
+              className={notionClasses.input}
+              >
+                <option value="">Select customer</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.name || customer.email || customer.id}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">

@@ -4,30 +4,34 @@
 // ├── Storage list  ← reads from Firestore
 // └── CreateModal   ← writes to Firestore, updates list on success
 // ══════════════════════════════════════════════════════════════════════════════
-// NHTSA vPIC API  — free, no key required
-// Docs: https://vpic.nhtsa.dot.gov/api/
-//
-// Endpoints used:
-//   GET /vehicles/GetAllMakes?format=json
-//   GET /vehicles/GetModelsForMake/{make}?format=json
-//   GET /vehicles/DecodeVin/{vin}?format=json
-// ══════════════════════════════════════════════════════════════════════════════
-// FIRESTORE DATA STRUCTURE — storage/{auto-id}
+// — storage/{auto-id}
 // ══════════════════════════════════════════════════════════════════════════════
 // {
+//   carLabel:    string          // e.g. "John's 2010 Honda Accord"
 //   type:        string          // "car", "truck", "motorcycle", etc.
 //   customerId:  string | null   // ref to customers/{id}
 //   plate:       string          // required
 //   make:        string          // from NHTSA
 //   model:       string          // from NHTSA
-//   year:        number
 //   color:       string | null
 //   vin:         string | null   // 17-char VIN
-//   mileage:     number | null   // odometer in km
+//   mileage:     INT64 | null   // odometer in km
 //   notes:       string | null
+//   year:        INT64
 //   createdAt:   Timestamp
+//   createdByEmployeeId: string
+//   createdByEmployeeName: string
 //   updatedAt:   Timestamp
 // }
+//
+// NHTSA vPIC API  — free, no key required
+// Docs: https://vpic.nhtsa.dot.gov/api/
+// 
+// Endpoints used:
+//   GET /vehicles/GetAllMakes?format=json
+//   GET /vehicles/GetModelsForMake/{make}?format=json
+//   GET /vehicles/DecodeVin/{vin}?format=json
+//
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useMemo } from "react";
@@ -45,41 +49,9 @@ import {
   where,
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
+import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { notionClasses } from "/src/lib/notion-theme";
-
-const NHTSA = "https://vpic.nhtsa.dot.gov/api/vehicles";
-
-const VEHICLE_TYPES = [
-  "Car",
-  "Truck",
-  "Motorcycle",
-  "Van",
-  "Bus",
-  "RV",
-  "Trailer",
-  "Other",
-];
-const COLORS = [
-  "Black",
-  "White",
-  "Silver",
-  "Grey",
-  "Blue",
-  "Red",
-  "Green",
-  "Yellow",
-  "Orange",
-  "Brown",
-  "Gold",
-  "Beige",
-  "Purple",
-  "Other",
-];
-
-const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: currentYear - 1980 }, (_, i) =>
-  String(currentYear - i),
-);
+import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/vehicle-data.js";
 
 const BLANK = {
   type: "",
@@ -138,16 +110,6 @@ async function fetchStorage(businessId) {
     query(
       collection(db, "businesses", businessId, "storage"),
       orderBy("createdAt", "desc"),
-    ),
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-async function fetchCustomers(businessId) {
-  const snap = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "Customers"),
-      orderBy("name"),
     ),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -597,12 +559,17 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
 // ══════════════════════════════════════════════════════════════════════════════
 export default function StoragePage() {
   const navigate = useNavigate();
+  const businessId = localStorage.getItem("ccgBusinessId");
+  const { customers: customersList } = useCustomersForCurrentUser(businessId);
+  const customers = customersList.reduce((acc, c) => {
+    acc[c.id] = c.name;
+    return acc;
+  }, {});
+
   const [items, setItems] = useState([]);
-  const [customers, setCustomers] = useState({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [businessId, setBusinessId] = useState(null);
   const [hasJobMap, setHasJobMap] = useState({});
   const [totalHoursMap, setTotalHoursMap] = useState({});
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -618,14 +585,10 @@ export default function StoragePage() {
           navigate("/Login");
           return;
         }
-        setBusinessId(bizId);
-        Promise.all([fetchStorage(bizId), fetchCustomers(bizId)])
-          .then(async ([storageData, customerData]) => {
-            setItems(storageData);
-            const map = {};
-            customerData.forEach((c) => (map[c.id] = c.name));
-            console.log("customers map:", map);
-            setCustomers(map);
+        
+        try {
+          const storageData = await fetchStorage(bizId);
+          setItems(storageData);
 
             // Check for jobs and calculate hours for all items in parallel
             const jobMap = {};
@@ -654,8 +617,9 @@ export default function StoragePage() {
 
             setHasJobMap(jobMap);
             setTotalHoursMap(hoursMap);
-          })
-          .finally(() => setLoading(false));
+          } finally {
+            setLoading(false);
+          }
       } else {
         setLoading(false);
       }

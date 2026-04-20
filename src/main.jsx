@@ -50,17 +50,20 @@ createRoot(document.getElementById('root')).render(
   // — storage/{auto-id}
   // ──────────────────────────────────────────────────────────────────────────────
   // {
+  //   carLabel:    string          // e.g. "John's 2010 Honda Accord"
   //   type:        string          // "car", "truck", "motorcycle", etc.
   //   customerId:  string | null   // ref to customers/{id}
   //   plate:       string          // required
   //   make:        string          // from NHTSA
   //   model:       string          // from NHTSA
-  //   year:        number
   //   color:       string | null
   //   vin:         string | null   // 17-char VIN
-  //   mileage:     number | null   // odometer in km
+  //   mileage:     INT64 | null   // odometer in km
   //   notes:       string | null
+  //   year:        INT64
   //   createdAt:   Timestamp
+  //   createdByEmployeeId: string
+  //   createdByEmployeeName: string
   //   updatedAt:   Timestamp
   // }
   //
