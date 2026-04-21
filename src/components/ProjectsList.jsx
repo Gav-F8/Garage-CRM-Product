@@ -1,5 +1,5 @@
 // ProjectsList.jsx
-// ├── Fetching Jobs using status.js (vehicleId, title, status)
+// ├── Fetching Jobs using utils.js (vehicleId, title, status)
 // ├── Toggle Filter buttons Active (boolean), Complete (status), WIP (status)
 // ├── Dropdown Menu => Select Status  ← reads from (status) projects, compares against STATUS_OPTIONS to get unique status keys for filtering (Excludes WIP, Complete statuses)
 // ├── Dropdown Menu => Select Mechanic  ← reads from (assignedMechanicName) projects to get unique names for filtering
@@ -30,7 +30,7 @@
 
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { STATUS_OPTIONS, getStatusMeta, statusStyle, isWIPStatus, isCompleteStatus } from "../lib/status";
+import { STATUS_OPTIONS, getStatusMeta, statusStyle, isWIPStatus, isCompleteStatus } from "../lib/utils.js";
 
 
 // Utility functions

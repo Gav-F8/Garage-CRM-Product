@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
-import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { NavigationBar } from "/src/components/NavigationBar";
+import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { db } from "/src/firebase";
+
+import { 
+  STATUS_OPTIONS,
+  fetchMechanics, 
+} from "/src/lib/utils.js";
+
 import {
   doc,
   getDoc,
@@ -15,10 +21,10 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import { STATUS_OPTIONS } from "/src/lib/status.js";
 
 const PRIORITY_OPTIONS = ["low", "medium", "high"];
 
+// Fetch mechanics for a business
 export default function EditProjectPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -27,19 +33,38 @@ export default function EditProjectPage() {
   const userRole = localStorage.getItem("ccgUserRole");
   const { customers, loading: customersLoading } = useCustomersForCurrentUser(businessId);
 
-  const [formData, setFormData] = useState({
+  const [mechanics, setMechanics] = useState([]);
+  const [selectedMechanicId, setSelectedMechanicId] = useState("");
+  const [form, setForm] = useState({
     title: "",
     status: "",
     priority: "",
     customerId: "",
     customerName: "",
+    carId: "",
     carLabel: "",
     description: "",
+    assignedMechanicIds: [],
   });
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Fetch mechanics for mount
+  useEffect(() => {
+    async function loadMechanics() {
+      if (!businessId) return;
+      try {
+        const mechanicsList = await fetchMechanics(businessId);
+        setMechanics(mechanicsList);
+      } catch (err) {
+        console.error("Error loading mechanics:", err);
+        setError("Failed to load mechanics");
+      }
+    }
+    loadMechanics();
+  }, [businessId]);
 
   useEffect(() => {
     async function loadProject() {
@@ -88,13 +113,14 @@ export default function EditProjectPage() {
           ? loadedPriority
           : "";
 
-        setFormData({
+        setForm({
           title: data.title || "",
           status: safeStatus,
           priority: safePriority,
           customerName: data.customerName || "",
           carLabel: data.carLabel || "",
           description: data.description || "",
+          assignedMechanicIds: data.assignedMechanicIds || [],
         });
 
       } catch (err) {
@@ -109,11 +135,34 @@ export default function EditProjectPage() {
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setForm((prev) => ({
       ...prev,
       [name]: value,
     }));
   }
+
+  // Add mechanic to assigned list
+  const addMechanic = (mechanicId) => {
+    if (!mechanicId) return;
+    setForm((prev) => {
+      if (prev.assignedMechanicIds.includes(mechanicId)) return prev;
+      return {
+        ...prev,
+        assignedMechanicIds: [...prev.assignedMechanicIds, mechanicId],
+      };
+    });
+    setSelectedMechanicId("");
+  };
+
+  // Remove mechanic from assigned list
+  const removeMechanic = (mechanicId) => {
+    setForm((prev) => ({
+      ...prev,
+      assignedMechanicIds: prev.assignedMechanicIds.filter(
+        (id) => id !== mechanicId,
+      ),
+    }));
+  };
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -130,7 +179,7 @@ export default function EditProjectPage() {
       );
 
       await updateDoc(projectRef, {
-        ...formData,
+        ...form,
         updatedAt: serverTimestamp(),
       });
 
@@ -207,7 +256,7 @@ export default function EditProjectPage() {
               <input
                 type="text"
                 name="title"
-                value={formData.title}
+                value={form.title}
                 onChange={handleChange}
                 className={notionClasses.input}
               />
@@ -219,7 +268,7 @@ export default function EditProjectPage() {
               </label>
               <select
                 name="status"
-                value={formData.status}
+                value={form.status}
                 onChange={handleChange}
                 className={notionClasses.input}
               >
@@ -238,7 +287,7 @@ export default function EditProjectPage() {
               </label>
               <select
                 name="priority"
-                value={formData.priority}
+                value={form.priority}
                 onChange={handleChange}
                 className={notionClasses.input}
               >
@@ -254,11 +303,11 @@ export default function EditProjectPage() {
                 Customer
               </label>
               <select
-                value={formData.customerId}
+                value={form.customerId}
                 onChange={(e) => {
                   const customerId = e.target.value;
                   const selectedCustomer = customers.find(c => c.id === customerId);
-                  setFormData((prev) => ({
+                  setForm((prev) => ({
                     ...prev,
                     customerId: customerId,
                     customerName: selectedCustomer.name || "",
@@ -282,7 +331,7 @@ export default function EditProjectPage() {
               <input
                 type="text"
                 name="carLabel"
-                value={formData.carLabel}
+                value={form.carLabel}
                 onChange={handleChange}
                 className={notionClasses.input}
               />
@@ -294,12 +343,59 @@ export default function EditProjectPage() {
               </label>
               <textarea
                 name="description"
-                value={formData.description}
+                value={form.description}
                 onChange={handleChange}
                 rows={5}
                 placeholder="Describe the work needed for this project..."
                 className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all resize-none"
               />
+            </div>
+
+            {/* ASSIGNED MECHANICS SECTION */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[#37352F]">
+                Assigned Mechanics*
+              </label>
+              <select
+                value={selectedMechanicId}
+                onChange={(e) => addMechanic(e.target.value)}
+                className={notionClasses.input}
+              >
+                <option value="">Select mechanic to add</option>
+                {mechanics
+                  .filter(
+                    (mechanic) =>
+                      !form.assignedMechanicIds.includes(mechanic.id),
+                  )
+                  .map((mechanic) => (
+                    <option key={mechanic.id} value={mechanic.id}>
+                      {mechanic.name}
+                    </option>
+                  ))}
+              </select>
+              
+              {/* ASSIGNED MECHANIC TAGS */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {form.assignedMechanicIds.map((mechanicId) => {
+                  const mechanic = mechanics.find((m) => m.id === mechanicId);
+                  return (
+                    <span
+                      key={mechanicId}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F7F6F3] text-sm text-[#37352F] border border-[#E0E0E0]"
+                    >
+                      {mechanic?.name || mechanicId}
+                      <button
+                        type="button"
+                        onClick={() => removeMechanic(mechanicId)}
+                        className="ml-1 text-[#787774] hover:text-[#C53030] font-bold"
+                        aria-label="Remove mechanic"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-3 pt-2">

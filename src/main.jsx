@@ -10,13 +10,13 @@ createRoot(document.getElementById('root')).render(
 )
 
   // ══════════════════════════════════════════════════════════════════════════════
-  //  FIRESTORE DATA STRUCTURE 
+  //  FIRESTORE DATA STRUCTURE
   // ══════════════════════════════════════════════════════════════════════════════
   // - buissness/{businessId}/
-  // ├── customers (title + "Create Customer" button)
-  // ├── employees (visible when list has items)
-  // ├── projects  ← reads from Firestore
-  // └── storage   ← writes to Firestore, updates list on success
+  // ├── customers
+  // ├── employees
+  // ├── projects
+  // └── storage
   //
   // ──────────────────────────────────────────────────────────────────────────────
   // — employees/{auto-id}
@@ -78,7 +78,24 @@ createRoot(document.getElementById('root')).render(
   // ──────────────────────────────────────────────────────────────────────────────
   // — projects/{auto-id}
   // ──────────────────────────────────────────────────────────────────────────────
-  // {
+  //
+  //  TimeLogs: [
+  //      employeeName: string
+  //      Uid:   string
+  //      createdAt: Timestamp
+  //      minutes: integer
+  //      notes: string | null
+  //      workdate: Timestamp
+  //    ]
+  //
+  //  TimeLogs: [
+  //      employeeName: string
+  //      createdAt:   string
+  //      createdByEmployeeName:   string       // required
+  //      createdByEmployeeId:     string       // required
+  //      text:                    string       // required
+  //    ]
+  //
   //   assignedMechanicId:      string          // required
   //   assignedMechanicName:    string | null
   //   carId:                   string | null

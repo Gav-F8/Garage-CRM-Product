@@ -17,7 +17,8 @@ import {
 } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
-import { statusStyle } from "/src/lib/status.js";
+import { statusStyle } from "/src/lib/utils.js";
+import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
 
 export default function ProjectDetailsPage() {
   // Route navigation and identifier.
@@ -47,8 +48,7 @@ export default function ProjectDetailsPage() {
   const [editLogNote, setEditLogNote] = useState("");
   const [editWorkDate, setEditWorkDate] = useState("");
   
-  const [timerSeconds, setTimerSeconds] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const { timerSeconds, setTimerSeconds, isTimerRunning, setIsTimerRunning, clearTimer, resetTimer } = useTimerPersistence(projectId);
   const [isActive, setIsActive] = useState(false);
   const [timerNote, setTimerNote] = useState("");
   const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
@@ -56,7 +56,6 @@ export default function ProjectDetailsPage() {
   const isMountedRef = useRef(true);
   const notesUnsubscribeRef = useRef(null);
   const timeLogsUnsubscribeRef = useRef(null);
-  
   const businessId = localStorage.getItem("ccgBusinessId");
 
   // Sets up real-time listener for Notes, sorted by newest first
@@ -152,18 +151,43 @@ export default function ProjectDetailsPage() {
       projectId,
       "TimeLogs",
     );
-
+    
     const logsQuery = query(logsRef, orderBy("createdAt", "desc"));
     const logsSnap = await getDocs(logsQuery);
-
+    
     const logsList = logsSnap.docs.map((logDoc) => ({
       id: logDoc.id,
       ...logDoc.data(),
     }));
-
+    
     setTimeLogs(logsList);
   }
 
+  // Finalzes set up for real-time listeners for notes and time logs
+  useEffect(() => {
+    if (!businessId || !projectId) return;
+  
+    const notesUnsubscribe = setupNotesListener();
+    if (notesUnsubscribe) {
+      notesUnsubscribeRef.current = notesUnsubscribe;
+    }
+  
+    const timeLogsUnsubscribe = setupTimeLogsListener();
+    if (timeLogsUnsubscribe) {
+      timeLogsUnsubscribeRef.current = timeLogsUnsubscribe;
+    }
+  
+    // Cleanup listeners on unmount or when depenencies change
+    return () => {
+      if (notesUnsubscribeRef.current) {
+        notesUnsubscribeRef.current();
+      }
+      if (timeLogsUnsubscribeRef.current) {
+        timeLogsUnsubscribeRef.current();
+      }
+    };
+  }, [businessId, projectId]);
+  
   // Initial project load with related data.
   useEffect(() => {
     async function loadProjectData() {
@@ -217,7 +241,7 @@ export default function ProjectDetailsPage() {
         }
 
         const projectData = { id: projectSnap.id, ...projectSnap.data() };
-
+        
         const projectIsActive = projectData.isActive === true;
         setIsActive(projectIsActive);
         setIsTimerRunning(projectIsActive);
@@ -256,31 +280,7 @@ export default function ProjectDetailsPage() {
     loadProjectData();
   }, [businessId, projectId]);
 
-  // Set up real-time listeners for notes and time logs
-  useEffect(() => {
-    if (!businessId || !projectId) return;
-
-    const notesUnsubscribe = setupNotesListener();
-    if (notesUnsubscribe) {
-      notesUnsubscribeRef.current = notesUnsubscribe;
-    }
-
-    const timeLogsUnsubscribe = setupTimeLogsListener();
-    if (timeLogsUnsubscribe) {
-      timeLogsUnsubscribeRef.current = timeLogsUnsubscribe;
-    }
-
-    // Cleanup listeners on unmount or when depenencies change
-    return () => {
-      if (notesUnsubscribeRef.current) {
-        notesUnsubscribeRef.current();
-      }
-      if (timeLogsUnsubscribeRef.current) {
-        timeLogsUnsubscribeRef.current();
-      }
-    };
-  }, [businessId, projectId]);
-
+  // If timer running set active state to true else false.
   // Mirrors timer state into local isActive state.
   useEffect(() => {
     setIsActive(isTimerRunning);
@@ -501,6 +501,7 @@ export default function ProjectDetailsPage() {
       setTimerSeconds(0);
       setTimerNote("");
       setIsTimerRunning(false);
+      clearTimer(); // Clear localStorage after successful submission
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to submit stopwatch time log.");
@@ -1032,8 +1033,7 @@ export default function ProjectDetailsPage() {
 
                       <button
                         onClick={() => {
-                          setIsTimerRunning(false);
-                          setTimerSeconds(0);
+                          resetTimer();
                           setTimerNote("");
                         }}
                         className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"

@@ -4,7 +4,7 @@ import { auth, db } from "/src/firebase.js";
 import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
-import { statusStyle } from "/src/lib/status.js";
+import { statusStyle } from "/src/lib/utils.js";
 
 // Fetches a single storage/vehicle record by ID.
 async function fetchStorageDetail(businessId, storageId) {

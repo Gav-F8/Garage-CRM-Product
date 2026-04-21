@@ -51,7 +51,7 @@ import {
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { notionClasses } from "/src/lib/notion-theme";
-import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/vehicle-data.js";
+import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/utils.js";
 
 const BLANK = {
   type: "",

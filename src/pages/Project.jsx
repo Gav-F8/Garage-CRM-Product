@@ -25,6 +25,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { auth, db } from "/src/firebase.js";
+import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import {
   addDoc,
   collection,
@@ -36,78 +38,19 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { auth, db } from "/src/firebase.js";
+
+import { 
+  STATUS_OPTIONS,
+  fetchBusinessId,
+  fetchCustomers,
+  fetchEmployeeName,
+  fetchMechanics,
+  fetchVehicles,
+} from "../lib/utils.js";
+
 import { NavigationBar } from "../components/NavigationBar";
 import ProjectsList from "../components/ProjectsList";
-import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { notionClasses } from "../lib/notion-theme";
-import { STATUS_OPTIONS } from "../lib/status";
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Firestore Helpers
-// ══════════════════════════════════════════════════════════════════════════════
-async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid)),
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
-
-async function fetchCustomers(businessId) {
-  const snap = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "Customers"),
-      orderBy("name"),
-    ),
-  );
-  return snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-}
-
-async function fetchVehicles(businessId) {
-  const snap = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "storage"),
-      orderBy("createdAt", "desc"),
-    ),
-  );
-  return snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-}
-
-async function fetchMechanics(businessId) {
-  const snap = await getDocs(
-    collection(db, "businesses", businessId, "Employees"),
-  );
-
-  return snap.docs
-    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    .filter((employee) => {
-      const role = String(employee.role || "").toLowerCase();
-      const status = String(employee.status || "active").toLowerCase();
-      return (role === "mechanic" || role === "owner") && status !== "rejected";
-    })
-    .map((employee) => ({
-      id: employee.id,
-      name: employee.Name || employee.name || employee.email || employee.id,
-    }));
-}
-
-async function fetchEmployeeName(businessId, employeeId) {
-  if (!employeeId) return null;
-
-  const employeeRef = doc(
-    db,
-    "businesses",
-    businessId,
-    "Employees",
-    employeeId,
-  );
-  const snap = await getDoc(employeeRef);
-
-  if (!snap.exists()) return null;
-  const employeeData = snap.data();
-  return employeeData.Name || employeeData.name || null;
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form initial state and validation logic
@@ -118,6 +61,7 @@ const INITIAL_JOB_FORM = {
   customerId: "",
   carId: "",
   status: "",
+  description: "",
   assignedMechanicIds: [],
 };
 
@@ -217,6 +161,7 @@ function CreateModal({
       customerId: form.customerId,
       carId: form.carId,
       status: form.status,
+      description: form.description,
       assignedMechanicIds: form.assignedMechanicIds,
     });
 
@@ -305,6 +250,18 @@ function CreateModal({
             <p className="text-xs text-[#C53030]">{errors.carId}</p>
           )}
         </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Description</label>
+          <textarea
+            value={form.description}
+            onChange={(event) => setField("description", event.target.value)}
+            placeholder="Enter project description"
+            className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
+            rows={4}
+          />
+        </div>
+
 
         {/*STATUS SELECT DROP DOWN MENU */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -493,10 +450,6 @@ export default function ProjectPage() {
         payload.assignedMechanicIds.includes(mechanic.id),
       );
 
-      const assignedMechanicNames = selectedMechanics
-        .map((mechanic) => mechanic.name)
-        .filter(Boolean);
-
       const carLabel = [
         selectedVehicle?.year,
         selectedVehicle?.make,
@@ -509,6 +462,7 @@ export default function ProjectPage() {
         title: payload.title,
         customerId: payload.customerId,
         customerName: selectedCustomer?.name || null,
+        description: payload.description || null,
         carId: payload.carId,
         carLabel: carLabel || null,
         status: payload.status,

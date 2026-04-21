@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar";
-import { VEHICLE_TYPES, NHTSA, } from "/src/lib/vehicle-data.js";
+import { VEHICLE_TYPES, NHTSA, } from "/src/lib/utils.js";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { db } from "/src/firebase";
 import {
