@@ -31,10 +31,8 @@ async function withErrorHandling(fn, defaultReturn) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SPECIFIC HELPERS
+// SPECIFIC HELPERS - have custom ordering or filter logic
 // ══════════════════════════════════════════════════════════════════════════════
-// fetchCustomerName vs fetchCustomers - one returns name by ID, other returns list of customers for dropdown. Could be optimized to reduce redundant calls but left separate for clarity and simplicity of individual methods.
-// fetchEmployeeName vs fetchMechanics - one returns name by ID, other returns list of mechanics for dropdown. Could be optimized to reduce redundant calls but left separate for clarity and simplicity of individual methods.
 
 export async function fetchBusinessId(userUid) {
   const snap = await getDocs(
@@ -75,42 +73,6 @@ export async function fetchMechanics(businessId) {
       id: employee.id,
       name: extractName(employee),
     }));
-}
-
-// Returns all projects linked to this vehicle.
-export async function fetchRelatedProjectsVehicle(businessId, storageId) {
-  try {
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("carId", "==", storageId));
-    const snap = await getDocs(q);
-
-    const relatedProjects = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    return relatedProjects;
-  } catch (error) {
-    console.error("Error fetching related projects:", error);
-    return [];
-  }
-}
-
-// Returns all projects that reference the current customer.
-export async function fetchRelatedProjectsCustomer(businessId, customerId) {
-  try {
-      const projectsRef = collection(db, "businesses", businessId, "Projects");
-      const q = query(projectsRef, where("customerId", "==", customerId));
-        const snap = await getDocs(q);
-        
-        const relatedProjects = snap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        }));
-        return relatedProjects;
-    } catch (error) {
-        console.error("Error fetching related projects:", error);
-        return [];
-    }
 }
 
 export async function fetchStorage(businessId) {
@@ -223,11 +185,11 @@ async function fetchProjectsByFilter(businessId, filterField, filterValue) {
     }
 }
 
-export async function fetchProjectsByCustomerId(businessId, customerId) {
+export async function fetchRelatedProjectsByCustomer(businessId, customerId) {
     return fetchProjectsByFilter(businessId, "customerId", customerId);
 }
 
-export async function fetchProjectsByVehicleId(businessId, vehicleId) {
+export async function fetchRelatedProjectsByVehicle(businessId, vehicleId) {
     return fetchProjectsByFilter(businessId, "carId", vehicleId);
 }
 

@@ -125,6 +125,7 @@ export default function EditProjectPage() {
         setForm({
           title: data.title || "",
           status: safeStatus,
+          customerId: data.customerId || "",
           customerName: data.customerName || "",
           carId: data.carId || "",
           carLabel: data.carLabel || "",
@@ -305,10 +306,10 @@ export default function EditProjectPage() {
                   setForm((prev) => ({
                     ...prev,
                     customerId: customerId,
-                    customerName: selectedCustomer.name || "",
+                    customerName: selectedCustomer?.name || "",
                   }));
                 }}
-              className={notionClasses.input}
+                className={notionClasses.input}
               >
                 <option value="">Select customer</option>
                 {customers.map((customer) => (
@@ -319,7 +320,7 @@ export default function EditProjectPage() {
               </select>
             </div>
 
-            {/* CAR LABEL SELECT DROPDOWN */}
+            {/* VEHICLE SELECT DROPDOWN */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
                 Vehicle
@@ -350,7 +351,9 @@ export default function EditProjectPage() {
                   <option value="">No vehicles for this customer</option>
                 )}
                 {form.customerId && filteredVehicles.length > 0 && (
-                  <option value="">Select vehicle</option>
+                  <option value="">
+                    {form.carLabel}
+                  </option>
                 )}
                 {filteredVehicles.map((vehicle) => (
                   <option key={vehicle.id} value={vehicle.id}>

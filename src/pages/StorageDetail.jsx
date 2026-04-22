@@ -6,7 +6,7 @@ import {
   fetchCustomerName,
   fetchTotalTimeLogsVehicle,
   fetchVehicleDetail,
-  fetchRelatedProjectsVehicle
+  fetchRelatedProjectsByVehicle
 } from "/src/lib/firestore-helpers.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
@@ -55,7 +55,7 @@ export default function StorageDetailPage() {
           }
 
           // Fetch related projects
-          const projects = await fetchRelatedProjectsVehicle(bizId, storageId);
+          const projects = await fetchRelatedProjectsByVehicle(bizId, storageId);
           setRelatedProjects(projects);
 
           // Fetch total time logs

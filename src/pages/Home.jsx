@@ -1,12 +1,16 @@
-import { NavigationBar } from "../components/NavigationBar";
 import { Link } from "react-router-dom";
-import ProjectsList from "../components/ProjectsList";
-import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
-import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";  // ← Remove duplicate useState
 import { auth, db } from "/src/firebase.js";
 import { getDocs, query, collection, where } from "firebase/firestore";
+import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
+import { NavigationBar } from "../components/NavigationBar";
+import { CreateJobFlow } from "/src/components/CreateJobModal.jsx";
+import ProjectsList from "../components/ProjectsList";
 
 export default function HomePage() {
+  const [showCreateModal, setShowCreateModal] = useState(false);  // ← Add this
+  const [submitting, setSubmitting] = useState(false);  // ← Add this
+
   const {
     projects,
     loading: loadingProjects,
@@ -92,7 +96,16 @@ export default function HomePage() {
                   <svg className="w-5 h-5 stroke-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span className="text-white">Create New Job</span>
+                  <button onClick={() => setShowCreateModal(true)}>Create New Job</button>
+                  {showCreateModal && (
+                    <CreateJobFlow 
+                      submitting={submitting} 
+                      onCreate={async (payload) => {
+                        // handle creation
+                        return true;
+                      }} 
+                    />
+                  )}
                 </div>
               </Link>
             </div>

@@ -4,7 +4,7 @@ import { auth } from "/src/firebase.js";
 import {
   fetchCustomerDetail,
   fetchTotalTimeLogsCustomer,
-  fetchRelatedProjectsCustomer
+  fetchRelatedProjectsByCustomer
 } from "/src/lib/firestore-helpers.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
@@ -43,7 +43,7 @@ export default function CustomerDetailPage() {
         setCustomer(customerData);
 
         if (customerData) {
-          const projects = await fetchRelatedProjectsCustomer(bizId, customerId);
+          const projects = await fetchRelatedProjectsByCustomer(bizId, customerId);
           setRelatedProjects(projects);
 
           const logs = await fetchTotalTimeLogsCustomer(bizId, customerId);

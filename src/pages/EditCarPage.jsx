@@ -306,7 +306,7 @@ export default function EditCarPage() {
                   setFormData((prev) => ({
                     ...prev,
                     customerId: customerId,
-                    customerName: selectedCustomer.name || "",
+                    customerName: selectedCustomer?.name || "",
                   }));
                 }}
               className={notionClasses.input}
