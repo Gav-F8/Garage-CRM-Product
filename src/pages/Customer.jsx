@@ -20,35 +20,18 @@ import { useState, useEffect, useRef } from "react";
 import { auth, db } from "/src/firebase.js";
 import { useNavigate } from "react-router-dom";
 import {
+  fetchCustomers,
+  fetchTotalHoursCustomer,
+  fetchEmployeeName,
+  checkHasActiveJobCustomer
+} from "/src/lib/firestore-helpers.js";
+import {
   addDoc,
-  getDocs,
-  getDoc,
-  doc,
   collection,
   serverTimestamp,
-  orderBy,
-  query,
-  where,
 } from "firebase/firestore";
-
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Firestore Helpers
-// ══════════════════════════════════════════════════════════════════════════════
-async function fetchCustomers(businessId) {
-  const querySnapshot = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "Customers"),
-      orderBy("createdAt", "desc"),
-    ),
-  );
-  return querySnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
-}
 
 async function createCustomer(businessId, data) {
   const currentUserId = auth.currentUser?.uid || null;
@@ -70,92 +53,6 @@ async function createCustomer(businessId, data) {
   );
 
   return { id: docRef.id };
-}
-
-async function fetchEmployeeName(businessId, employeeId) {
-  try {
-    // Try to get the employee document directly using the ID
-    const employeeRef = doc(
-      db,
-      "businesses",
-      businessId,
-      "Employees",
-      employeeId,
-    );
-    const snap = await getDoc(employeeRef);
-
-    if (snap.exists()) {
-      const data = snap.data();
-      // Try both "Name" (capitalized) and "name" (lowercase)
-      const name = data.Name || data.name;
-      if (name) {
-        return name;
-      }
-    }
-
-    console.warn(`Employee ${employeeId} not found or has no name`);
-    return null;
-  } catch (error) {
-    console.error("Error fetching employee name:", error);
-    return null;
-  }
-}
-
-async function checkHasJob(businessId, customerId) {
-  try {
-    // Query Projects collection to see if any project references this customer
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(
-      projectsRef,
-      where("customerId", "==", customerId),
-      where("isActive", "==", true)
-    );
-    const snap = await getDocs(q);
-
-    // If any results found, customer has an active job
-    return snap.size > 0;
-  } catch (error) {
-    console.error("Error checking for jobs:", error);
-    return false;
-  }
-}
-
-async function fetchTotalHours(businessId, customerId) {
-  try {
-    // Query only projects for this customer (server-side filtering)
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("customerId", "==", customerId));
-    const snap = await getDocs(q);
-
-    let totalMinutes = 0;
-    
-    // Fetch TimeLogs only for projects that belong to this customer
-    for (const projectDoc of snap.docs) {
-      const timeLogsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectDoc.id,
-        "TimeLogs",
-      );
-      const timeLogsSnap = await getDocs(timeLogsRef);
-
-      for (const timeLogDoc of timeLogsSnap.docs) {
-        const timeLogData = timeLogDoc.data();
-        if (timeLogData.minutes) {
-          totalMinutes += timeLogData.minutes;
-        }
-      }
-    }
-
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours}h ${minutes}m`;
-  } catch (error) {
-    console.error("Error fetching total hours:", error);
-    return "0h 0m";
-  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -277,7 +174,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
         address: form.address.trim() || null,
         notes: form.notes.trim() || null,
         createdByEmployeeId: currentUserId,
-        createdByEmployeeAcc: employeeName,
+        createdByEmployeeName: employeeName,
       });
 
       onClose();
@@ -396,10 +293,10 @@ export default function CreateCustomerPage() {
 
             await Promise.all(
               customerData.map(async (customer) => {
-                const hasJob = await checkHasJob(bizId, customer.id);
+                const hasJob = await checkHasActiveJobCustomer(bizId, customer.id);
                 jobMap[customer.id] = hasJob;
 
-                const hours = await fetchTotalHours(bizId, customer.id);
+                const hours = await fetchTotalHoursCustomer(bizId, customer.id);
                 hoursMap[customer.id] = hours;
               }),
             );

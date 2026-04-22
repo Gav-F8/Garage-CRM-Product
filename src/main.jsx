@@ -108,7 +108,6 @@ createRoot(document.getElementById('root')).render(
   //   lastNoteAt:              Timestamp | null
   //   lastNoteText:            string | null
   //   isActive:                boolean | null
-  //   priority:                string | null
   //   status:                  string | null
   //   title:                   string
   //   totalMinutes:            integer

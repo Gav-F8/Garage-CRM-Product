@@ -1,85 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auth, db } from "/src/firebase.js";
-import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
+import { auth } from "/src/firebase.js";
+import {
+  fetchCustomerDetail,
+  fetchTotalTimeLogsCustomer,
+  fetchRelatedProjectsCustomer
+} from "/src/lib/firestore-helpers.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
-
-// Fetches the customer document for this detail page.
-async function fetchCustomerDetail(businessId, customerId) {
-  try {
-    const customerRef = doc(
-      db,
-      "businesses",
-      businessId,
-      "Customers",
-      customerId,
-    );
-    const snap = await getDoc(customerRef);
-    if (snap.exists()) {
-      return { id: snap.id, ...snap.data() };
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching customer detail:", error);
-    return null;
-  }
-}
-
-// Returns all projects that reference the current customer.
-async function fetchRelatedProjects(businessId, customerId) {
-  try {
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("customerId", "==", customerId));
-    const snap = await getDocs(q);
-
-    const relatedProjects = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    return relatedProjects;
-  } catch (error) {
-    console.error("Error fetching related projects:", error);
-    return [];
-  }
-}
-
-// Aggregates minutes from TimeLogs across all customer projects.
-async function fetchTotalTimeLogs(businessId, customerId) {
-  try {
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("customerId", "==", customerId));
-    const snap = await getDocs(q);
-
-    let totalMinutes = 0;
-    for (const projectDoc of snap.docs) {
-      const timeLogsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectDoc.id,
-        "TimeLogs",
-      );
-      const timeLogsSnap = await getDocs(timeLogsRef);
-
-      for (const timeLogDoc of timeLogsSnap.docs) {
-        const timeLogData = timeLogDoc.data();
-        if (timeLogData.minutes) {
-          totalMinutes += timeLogData.minutes;
-        }
-      }
-    }
-
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return { totalMinutes, hours, minutes };
-  } catch (error) {
-    console.error("Error fetching time logs:", error);
-    return { totalMinutes: 0, hours: 0, minutes: 0 };
-  }
-}
 
 export default function CustomerDetailPage() {
   // Route and page-level state.
@@ -93,8 +22,6 @@ export default function CustomerDetailPage() {
     hours: 0,
     minutes: 0,
   });
-
-  // Allow access to customer details for mechanics and other roles.
 
   // Loads customer data and related project statistics after auth resolves.
   useEffect(() => {
@@ -116,10 +43,10 @@ export default function CustomerDetailPage() {
         setCustomer(customerData);
 
         if (customerData) {
-          const projects = await fetchRelatedProjects(bizId, customerId);
+          const projects = await fetchRelatedProjectsCustomer(bizId, customerId);
           setRelatedProjects(projects);
 
-          const logs = await fetchTotalTimeLogs(bizId, customerId);
+          const logs = await fetchTotalTimeLogsCustomer(bizId, customerId);
           setTimeLogs(logs);
         }
       } catch (error) {

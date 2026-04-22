@@ -15,7 +15,6 @@
 //   lastNoteAt:              Timestamp | null
 //   lastNoteText:            string | null
 //   isActive:                boolean | null
-//   priority:                string | null
 //   status:                  string | null
 //   title:                   string
 //   totalMinutes:            integer
@@ -26,31 +25,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
-import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import {
   addDoc,
   collection,
-  doc,
-  getDoc,
-  getDocs,
-  orderBy,
-  query,
   serverTimestamp,
   where,
 } from "firebase/firestore";
-
 import { 
-  STATUS_OPTIONS,
   fetchBusinessId,
   fetchCustomers,
   fetchEmployeeName,
   fetchMechanics,
-  fetchVehicles,
-} from "../lib/utils.js";
-
+  fetchStorage,
+} from "../lib/firestore-helpers";
+import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
+import { STATUS_OPTIONS } from "../lib/utils.js";
+import { notionClasses } from "../lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
 import ProjectsList from "../components/ProjectsList";
-import { notionClasses } from "../lib/notion-theme";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form initial state and validation logic
@@ -251,18 +243,6 @@ function CreateModal({
           )}
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-[#37352F]">Description</label>
-          <textarea
-            value={form.description}
-            onChange={(event) => setField("description", event.target.value)}
-            placeholder="Enter project description"
-            className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
-            rows={4}
-          />
-        </div>
-
-
         {/*STATUS SELECT DROP DOWN MENU */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <div className="flex flex-col gap-1">
@@ -312,30 +292,43 @@ function CreateModal({
                 {errors.assignedMechanicIds}
               </p>
             )}
-
-            {/* ASSIGNED MECHANIC TAG */}
-            <div className="mt-2 flex flex-wrap gap-2">
-              {form.assignedMechanicIds.map((mechanicId) => {
-                const mechanic = mechanics.find((m) => m.id === mechanicId);
-                return (
-                  <span
-                    key={mechanicId}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F7F6F3] text-sm text-[#37352F] border border-[#E0E0E0]"
-                  >
-                    {mechanic?.name || mechanicId}
-                    <button
-                      type="button"
-                      onClick={() => removeMechanic(mechanicId)}
-                      className="text-white hover:text-[#37352F] leading-none"
-                      aria-label="Remove mechanic"
-                    >
-                      ×
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
           </div>
+        </div>
+
+        {/* ASSIGNED MECHANIC TAGS - Full width below status/mechanic grid */}
+        {form.assignedMechanicIds.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {form.assignedMechanicIds.map((mechanicId) => {
+              const mechanic = mechanics.find((m) => m.id === mechanicId);
+              return (
+                <span
+                  key={mechanicId}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F7F6F3] text-sm text-[#37352F] border border-[#E0E0E0]"
+                >
+                  {mechanic?.name || mechanicId}
+                  <button
+                    type="button"
+                    onClick={() => removeMechanic(mechanicId)}
+                    className="text-white hover:text-[#37352F] leading-none"
+                    aria-label="Remove mechanic"
+                  >
+                    ×
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-[#37352F]">Description</label>
+          <textarea
+            value={form.description}
+            onChange={(event) => setField("description", event.target.value)}
+            placeholder="Enter project description"
+            className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white"
+            rows={4}
+          />
         </div>
 
         {/* BUTTONS */}
@@ -405,7 +398,7 @@ export default function ProjectPage() {
 
         const [customerList, vehicleList, mechanicList] = await Promise.all([
           fetchCustomers(bizId),
-          fetchVehicles(bizId),
+          fetchStorage(bizId),
           fetchMechanics(bizId),
         ]);
 
@@ -450,6 +443,10 @@ export default function ProjectPage() {
         payload.assignedMechanicIds.includes(mechanic.id),
       );
 
+      const assignedMechanicNames = selectedMechanics
+        .map((mechanic) => mechanic.name)
+        .filter(Boolean);
+
       const carLabel = [
         selectedVehicle?.year,
         selectedVehicle?.make,
@@ -479,7 +476,6 @@ export default function ProjectPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         isActive: false,
-        priority: null,
         totalMinutes: 0,
         lastNoteAt: null,
         lastNoteText: null,

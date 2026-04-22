@@ -44,6 +44,8 @@ export const YEARS = Array.from({ length: currentYear - 1885 }, (_, i) =>
   String(currentYear - i),
 );
 
+export const PRIORITY_OPTIONS = ["low", "medium", "high"];
+
 // STATUS DATA
 export const STATUS_OPTIONS = [
   { key: "pending", value: 0, label: "Pending", style: "bg-yellow-100 text-yellow-700 border border-yellow-200", aliases: ["pending"] },
@@ -91,68 +93,4 @@ export function isWIPStatus(status) {
 
 export function isCompleteStatus(status) {
   return getStatusMeta(status).value === 6;
-}
-
-// Firestore Helpers
-export async function fetchBusinessId(userUid) {
-  const snap = await getDocs(
-    query(collection(db, "businesses"), where("uid", "==", userUid)),
-  );
-  if (snap.empty) return null;
-  return snap.docs[0].id;
-}
-
-export async function fetchCustomers(businessId) {
-  const snap = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "Customers"),
-      orderBy("name"),
-    ),
-  );
-  return snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-}
-
-export async function fetchVehicles(businessId) {
-  const snap = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "storage"),
-      orderBy("createdAt", "desc"),
-    ),
-  );
-  return snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-}
-
-export async function fetchMechanics(businessId) {
-  const snap = await getDocs(
-    collection(db, "businesses", businessId, "Employees"),
-  );
-
-  return snap.docs
-    .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    .filter((employee) => {
-      const role = String(employee.role || "").toLowerCase();
-      const status = String(employee.status || "active").toLowerCase();
-      return (role === "mechanic" || role === "owner") && status !== "rejected";
-    })
-    .map((employee) => ({
-      id: employee.id,
-      name: employee.Name || employee.name || employee.email || employee.id,
-    }));
-}
-
-export async function fetchEmployeeName(businessId, employeeId) {
-  if (!employeeId) return null;
-
-  const employeeRef = doc(
-    db,
-    "businesses",
-    businessId,
-    "Employees",
-    employeeId,
-  );
-  const snap = await getDoc(employeeRef);
-
-  if (!snap.exists()) return null;
-  const employeeData = snap.data();
-  return employeeData.Name || employeeData.name || null;
 }

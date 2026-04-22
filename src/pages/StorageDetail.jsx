@@ -2,101 +2,15 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
 import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
+import {
+  fetchCustomerName,
+  fetchTotalTimeLogsVehicle,
+  fetchVehicleDetail,
+  fetchRelatedProjectsVehicle
+} from "/src/lib/firestore-helpers.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
-
-// Fetches a single storage/vehicle record by ID.
-async function fetchStorageDetail(businessId, storageId) {
-  try {
-    const storageRef = doc(db, "businesses", businessId, "storage", storageId);
-    const snap = await getDoc(storageRef);
-    if (snap.exists()) {
-      return { id: snap.id, ...snap.data() };
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching storage detail:", error);
-    return null;
-  }
-}
-
-// Resolves customer name for the linked customerId.
-async function fetchCustomerName(businessId, customerId) {
-  try {
-    const customerRef = doc(
-      db,
-      "businesses",
-      businessId,
-      "Customers",
-      customerId,
-    );
-    const snap = await getDoc(customerRef);
-    if (snap.exists()) {
-      return snap.data().name || null;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error fetching customer name:", error);
-    return null;
-  }
-}
-
-// Returns all projects linked to this vehicle.
-async function fetchRelatedProjects(businessId, storageId) {
-  try {
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("carId", "==", storageId));
-    const snap = await getDocs(q);
-
-    const relatedProjects = snap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    return relatedProjects;
-  } catch (error) {
-    console.error("Error fetching related projects:", error);
-    return [];
-  }
-}
-
-// Sums logged minutes across all related projects.
-async function fetchTotalTimeLogs(businessId, storageId) {
-  try {
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("carId", "==", storageId));
-    const snap = await getDocs(q);
-
-    let totalMinutes = 0;
-    for (const projectDoc of snap.docs) {
-      // Fetch TimeLogs for this project
-      const timeLogsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectDoc.id,
-        "TimeLogs",
-      );
-      const timeLogsSnap = await getDocs(timeLogsRef);
-
-      for (const timeLogDoc of timeLogsSnap.docs) {
-        const timeLogData = timeLogDoc.data();
-        if (timeLogData.minutes) {
-          totalMinutes += timeLogData.minutes;
-        }
-      }
-    }
-
-    // Convert minutes to hours and minutes
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return { totalMinutes, hours, minutes };
-  } catch (error) {
-    console.error("Error fetching time logs:", error);
-    return { totalMinutes: 0, hours: 0, minutes: 0 };
-  }
-}
 
 export default function StorageDetailPage() {
   // Route and page-level state.
@@ -130,7 +44,7 @@ export default function StorageDetailPage() {
         }
 
         // Fetch storage detail
-        const storageData = await fetchStorageDetail(bizId, storageId);
+        const storageData = await fetchVehicleDetail(bizId, storageId);
         setStorage(storageData);
 
         if (storageData) {
@@ -141,11 +55,11 @@ export default function StorageDetailPage() {
           }
 
           // Fetch related projects
-          const projects = await fetchRelatedProjects(bizId, storageId);
+          const projects = await fetchRelatedProjectsVehicle(bizId, storageId);
           setRelatedProjects(projects);
 
           // Fetch total time logs
-          const logs = await fetchTotalTimeLogs(bizId, storageId);
+          const logs = await fetchTotalTimeLogsVehicle(bizId, storageId);
           setTimeLogs(logs);
         }
       } catch (error) {

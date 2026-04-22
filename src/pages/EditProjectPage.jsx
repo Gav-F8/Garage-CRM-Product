@@ -1,15 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { notionClasses } from "/src/lib/notion-theme";
-import { NavigationBar } from "/src/components/NavigationBar";
-import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { db } from "/src/firebase";
-
-import { 
-  STATUS_OPTIONS,
-  fetchMechanics, 
-} from "/src/lib/utils.js";
-
 import {
   doc,
   getDoc,
@@ -21,10 +12,12 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
+import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
+import { fetchMechanics, fetchStorage } from "/src/lib/firestore-helpers.js";
+import { STATUS_OPTIONS } from "/src/lib/utils.js";
+import { notionClasses } from "/src/lib/notion-theme";
+import { NavigationBar } from "/src/components/NavigationBar";
 
-const PRIORITY_OPTIONS = ["low", "medium", "high"];
-
-// Fetch mechanics for a business
 export default function EditProjectPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -34,11 +27,11 @@ export default function EditProjectPage() {
   const { customers, loading: customersLoading } = useCustomersForCurrentUser(businessId);
 
   const [mechanics, setMechanics] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [selectedMechanicId, setSelectedMechanicId] = useState("");
   const [form, setForm] = useState({
     title: "",
     status: "",
-    priority: "",
     customerId: "",
     customerName: "",
     carId: "",
@@ -47,11 +40,17 @@ export default function EditProjectPage() {
     assignedMechanicIds: [],
   });
 
+  // Filter vehicles by selected customer
+  const filteredVehicles = useMemo(() => {
+  if (!form.customerId) return [];
+  return vehicles.filter((vehicle) => vehicle.customerId === form.customerId);
+}, [vehicles, form.customerId]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch mechanics for mount
+  // Load mechanics
   useEffect(() => {
     async function loadMechanics() {
       if (!businessId) return;
@@ -66,6 +65,21 @@ export default function EditProjectPage() {
     loadMechanics();
   }, [businessId]);
 
+  // Load vehicles
+  useEffect(() => {
+    async function loadVehicles() {
+      if (!businessId) return;
+      try {
+        const vehiclesList = await fetchStorage(businessId);
+        setVehicles(vehiclesList);
+      } catch (err) {
+        console.error("Error loading vehicles:", err);
+      }
+    }
+    loadVehicles();
+  }, [businessId]);
+
+  // Load project data on mount and populate form
   useEffect(() => {
     async function loadProject() {
       if (!businessId) {
@@ -108,16 +122,11 @@ export default function EditProjectPage() {
           ? loadedStatus
           : "";
 
-        const loadedPriority = (data.priority || "").toLowerCase();
-        const safePriority = PRIORITY_OPTIONS.includes(loadedPriority)
-          ? loadedPriority
-          : "";
-
         setForm({
           title: data.title || "",
           status: safeStatus,
-          priority: safePriority,
           customerName: data.customerName || "",
+          carId: data.carId || "",
           carLabel: data.carLabel || "",
           description: data.description || "",
           assignedMechanicIds: data.assignedMechanicIds || [],
@@ -247,6 +256,7 @@ export default function EditProjectPage() {
           </p>
         </div>
 
+        {/* TITLE INPUT FORM*/}
         <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6 max-w-3xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
@@ -262,6 +272,7 @@ export default function EditProjectPage() {
               />
             </div>
 
+            {/* STATUS SELECT DROP DOWN MENU*/}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
                 Status
@@ -281,23 +292,7 @@ export default function EditProjectPage() {
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">
-                Priority
-              </label>
-              <select
-                name="priority"
-                value={form.priority}
-                onChange={handleChange}
-                className={notionClasses.input}
-              >
-                <option value="">Select priority</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
+            {/* CUSTOMER SELECT DROP DOWN MENU*/}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
                 Customer
@@ -324,31 +319,47 @@ export default function EditProjectPage() {
               </select>
             </div>
 
+            {/* CAR LABEL SELECT DROPDOWN */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
-                Car Label
+                Vehicle
               </label>
-              <input
-                type="text"
-                name="carLabel"
-                value={form.carLabel}
-                onChange={handleChange}
+              <select
+                name="carId"
+                value={form.carId}
+                onChange={(e) => {
+                  const carId = e.target.value;
+                  const selectedVehicle = vehicles.find(v => v.id === carId);
+                  setForm((prev) => ({
+                    ...prev,
+                    carId: carId,
+                    carLabel: selectedVehicle ? 
+                      [selectedVehicle.year, selectedVehicle.make, selectedVehicle.model]
+                        .filter(Boolean)
+                        .join(" ") 
+                      : "",
+                  }));
+                }}
                 className={notionClasses.input}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-[#37352F]">
-                Description
-              </label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows={5}
-                placeholder="Describe the work needed for this project..."
-                className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all resize-none"
-              />
+                disabled={!form.customerId || filteredVehicles.length === 0}
+              >
+                {!form.customerId && (
+                  <option value="">Select customer first</option>
+                )}
+                {form.customerId && filteredVehicles.length === 0 && (
+                  <option value="">No vehicles for this customer</option>
+                )}
+                {form.customerId && filteredVehicles.length > 0 && (
+                  <option value="">Select vehicle</option>
+                )}
+                {filteredVehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {[vehicle.year, vehicle.make, vehicle.model, vehicle.plate]
+                      .filter(Boolean)
+                      .join(" ")}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* ASSIGNED MECHANICS SECTION */}
@@ -397,7 +408,23 @@ export default function EditProjectPage() {
                 })}
               </div>
             </div>
+            
+            {/* DESCRIPTION BOX */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-[#37352F]">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                rows={5}
+                placeholder="Describe the work needed for this project..."
+                className="w-full px-3 py-2 text-sm text-[#37352F] bg-[#F7F6F3] border border-[#E0E0E0] rounded-lg outline-none focus:border-[#37352F] focus:bg-white transition-all resize-none"
+              />
+            </div>
 
+            {/* SAVE BUTTON */}
             <div className="flex flex-wrap gap-3 pt-2">
               <button
                 type="submit"
@@ -406,7 +433,8 @@ export default function EditProjectPage() {
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
-
+              
+              {/* CANCEL BUTTON*/}
               <button
                 type="button"
                 onClick={() => navigate(`/projects/${projectId}`)}
@@ -422,6 +450,7 @@ export default function EditProjectPage() {
                   Danger Zone
                 </h2>
 
+                {/* DELETE BUTTON*/}
                 <button
                   type="button"
                   onClick={handleDelete}

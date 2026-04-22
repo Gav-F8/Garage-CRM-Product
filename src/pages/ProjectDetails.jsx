@@ -15,10 +15,10 @@ import {
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
+import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
+import { statusStyle } from "/src/lib/utils.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
-import { statusStyle } from "/src/lib/utils.js";
-import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
 
 export default function ProjectDetailsPage() {
   // Route navigation and identifier.
@@ -602,11 +602,6 @@ export default function ProjectDetailsPage() {
     return String(timestamp);
   }
 
-  function formatPriority(priority) {
-    if (!priority) return "No Priority";
-    return priority.charAt(0).toUpperCase() + priority.slice(1);
-  }
-
   function getTotalMinutes() {
     return timeLogs.reduce((sum, log) => sum + (Number(log.minutes) || 0), 0);
   }
@@ -753,15 +748,6 @@ export default function ProjectDetailsPage() {
                     <span className="font-medium text-[#37352F]">Status</span>
                     <span className="text-[#787774] block mt-1">
                       {project.status ? statusMeta.label : "-"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text - [#37352F]">
-                      Priority
-                    </span>
-                    <span className="text-[#787774] block mt-1">
-                      {project.priority || "-"}
                     </span>
                   </div>
 

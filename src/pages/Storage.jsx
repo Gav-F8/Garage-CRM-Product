@@ -40,18 +40,20 @@ import { auth, db } from "/src/firebase.js";
 import {
   addDoc,
   getDocs,
-  getDoc,
-  doc,
   collection,
   serverTimestamp,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
-import { NavigationBar } from "/src/components/NavigationBar.jsx";
+import {
+  fetchEmployeeName,
+  fetchTotalHoursVehicle,
+  checkHasActiveJobVehicle
+} from "/src/lib/firestore-helpers.js";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
-import { notionClasses } from "/src/lib/notion-theme";
 import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/utils.js";
+import { notionClasses } from "/src/lib/notion-theme";
+import { NavigationBar } from "/src/components/NavigationBar.jsx";
 
 const BLANK = {
   type: "",
@@ -70,41 +72,6 @@ const BLANK = {
 // Firestore Helpers
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function fetchEmployeeName(businessId, employeeId) {
-  try {
-    console.log("Fetching employee name for:", businessId, employeeId);
-
-    // Try to get the employee document directly using the ID
-    const employeeRef = doc(
-      db,
-      "businesses",
-      businessId,
-      "Employees",
-      employeeId,
-    );
-    const snap = await getDoc(employeeRef);
-
-    console.log("Employee document exists:", snap.exists());
-    const data = snap.data();
-    console.log("Employee document data:", data);
-
-    if (snap.exists() && data) {
-      // Try both "Name" (capitalized) and "name" (lowercase)
-      const name = data.Name || data.name;
-      if (name) {
-        console.log("Found employee name:", name);
-        return name;
-      }
-    }
-
-    console.warn(`Employee ${employeeId} not found or has no name`);
-    return null;
-  } catch (error) {
-    console.error("Error fetching employee name:", error);
-    return null;
-  }
-}
-
 async function fetchStorage(businessId) {
   const snap = await getDocs(
     query(
@@ -114,64 +81,6 @@ async function fetchStorage(businessId) {
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
-
-async function checkHasJob(businessId, storageId, customerId) {
-  try {
-    // Query Projects collection to see if any project references this storage or customer
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(
-      projectsRef,
-      where("carId", "==", storageId),
-      where("isActive", "==", true)
-    );
-    const snap = await getDocs(q);
-
-    // If any results found, storage item has an active job
-    return snap.size > 0;
-  } catch (error) {
-    console.error("Error checking for jobs:", error);
-    return false;
-  }
-}
-
-async function fetchTotalHours(businessId, storageId, customerId) {
-  try {
-    const projectsRef = collection(db, "businesses", businessId, "Projects");
-    const q = query(projectsRef, where("carId", "==", storageId));
-    const snap = await getDocs(q);
-
-    let totalMinutes = 0;
-
-    // Fetch TimeLogs for projects linked to this storage item
-    for (const projectDoc of snap.docs) {
-      const timeLogsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectDoc.id,
-        "TimeLogs",
-      );
-      const timeLogsSnap = await getDocs(timeLogsRef);
-
-      for (const timeLogDoc of timeLogsSnap.docs) {
-        const timeLogData = timeLogDoc.data();
-        if (timeLogData.minutes) {
-          totalMinutes += timeLogData.minutes;
-        }
-      }
-    }
-
-    // Convert minutes to hours and minutes
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours}h ${minutes}m`;
-  } catch (error) {
-    console.error("Error fetching total hours:", error);
-    return "0h 0m";
-  }
-}
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Vehicle Creation Form and validation logic
@@ -576,7 +485,6 @@ export default function StoragePage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
-
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
@@ -598,7 +506,7 @@ export default function StoragePage() {
             await Promise.all(
               storageData.map(async (item) => {
                 // Check if this storage item has any active projects
-                const hasJob = await checkHasJob(
+                const hasJob = await checkHasActiveJobVehicle(
                   bizId,
                   item.id,
                   item.customerId,
@@ -606,7 +514,7 @@ export default function StoragePage() {
                 jobMap[item.id] = hasJob;
 
                 // Get total hours for this storage item
-                const hours = await fetchTotalHours(
+                const hours = await fetchTotalHoursVehicle(
                   bizId,
                   item.id,
                   item.customerId,
