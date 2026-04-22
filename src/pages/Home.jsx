@@ -33,16 +33,13 @@ export default function HomePage() {
         const user = auth.currentUser;
         if (!user) return;
 
-        // Get business ID from localStorage
         const businessId = localStorage.getItem("ccgBusinessId");
         if (!businessId) return;
 
-        // Fetch customers count
         const customersSnap = await getDocs(
           collection(db, "businesses", businessId, "Customers")
         );
 
-        // Fetch vehicles count
         const vehiclesSnap = await getDocs(
           collection(db, "businesses", businessId, "storage")
         );
@@ -100,7 +97,7 @@ export default function HomePage() {
                   Create New Job
                 </div>
               </button>
-              <CreateJobFlow 
+              <CreateJobFlow
                 submitting={false}
                 renderButton={false}
                 showModal={showCreateModal}
@@ -126,7 +123,6 @@ export default function HomePage() {
             <div>
               <h2 className="text-lg font-semibold text-[#37352F] mb-4">Overview</h2>
               <div className="space-y-4">
-                {/* Active Projects */}
                 <Link
                   to="/jobs"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
@@ -146,7 +142,6 @@ export default function HomePage() {
                   </div>
                 </Link>
 
-                {/* Total Customers */}
                 <Link
                   to="/customer"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
@@ -166,7 +161,6 @@ export default function HomePage() {
                   </div>
                 </Link>
 
-                {/* Total Vehicles */}
                 <Link
                   to="/storage"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"

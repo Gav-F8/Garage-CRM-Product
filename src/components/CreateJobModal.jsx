@@ -51,12 +51,11 @@ function CreateModal({
   onCreate,
 }) {
   const navigate = useNavigate();
-  
-  // Form state
+
   const [form, setForm] = useState(INITIAL_JOB_FORM);
   const [errors, setErrors] = useState({});
   const [selectedMechanicId, setSelectedMechanicId] = useState("");
-  
+
   // Data fetching state
   const [customers, setCustomers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -94,7 +93,7 @@ function CreateModal({
 
     loadModalData();
   }, []);
-  
+
   // Add mechanic to the assignedMechanicIds array in form state
   const addMechanic = (mechanicId) => {
     if (!mechanicId) return;
@@ -118,13 +117,13 @@ function CreateModal({
       ),
     }));
   };
-  
+
   // Filter vehicles based on selected customer
   const filteredVehicles = useMemo(() => {
     if (!form.customerId) return [];
     return vehicles.filter((vehicle) => vehicle.customerId === form.customerId);
   }, [vehicles, form.customerId]);
-  
+
   // Handle form field changes and clear related errors
   const setField = (name, value) => {
     setForm((prev) => {
@@ -145,7 +144,7 @@ function CreateModal({
       setErrors(formErrors);
       return;
     }
-    
+
     const jobId = await onCreate({
       title: form.title.trim(),
       customerId: form.customerId,
@@ -154,7 +153,7 @@ function CreateModal({
       description: form.description,
       assignedMechanicIds: form.assignedMechanicIds,
     });
-    
+
     if (jobId) {
       setForm(INITIAL_JOB_FORM);
       onClose();
@@ -382,8 +381,7 @@ export { CreateModal };
 // Combined button + modal component
 export function CreateJobFlow({ submitting, onCreate, renderButton = true, showModal: externalShowModal, setShowModal: externalSetShowModal }) {
   const [internalShowModal, setInternalShowModal] = useState(false);
-  
-  // Use external state if provided, otherwise use internal state
+
   const showModal = externalShowModal !== undefined ? externalShowModal : internalShowModal;
   const setShowModal = externalSetShowModal || setInternalShowModal;
 
