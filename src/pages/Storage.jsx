@@ -48,7 +48,6 @@ import {
 import {
   fetchEmployeeName,
   fetchTotalHoursVehicle,
-  checkHasActiveJobVehicle
 } from "/src/lib/firestore-helpers.js";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/utils.js";
@@ -479,7 +478,6 @@ export default function StoragePage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [hasJobMap, setHasJobMap] = useState({});
   const [totalHoursMap, setTotalHoursMap] = useState({});
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -498,22 +496,10 @@ export default function StoragePage() {
           const storageData = await fetchStorage(bizId);
           setItems(storageData);
 
-            // Check for jobs and calculate hours for all items in parallel
-            const jobMap = {};
             const hoursMap = {};
 
-            // Process all items and fetch their job status and hours
             await Promise.all(
               storageData.map(async (item) => {
-                // Check if this storage item has any active projects
-                const hasJob = await checkHasActiveJobVehicle(
-                  bizId,
-                  item.id,
-                  item.customerId,
-                );
-                jobMap[item.id] = hasJob;
-
-                // Get total hours for this storage item
                 const hours = await fetchTotalHoursVehicle(
                   bizId,
                   item.id,
@@ -523,7 +509,6 @@ export default function StoragePage() {
               }),
             );
 
-            setHasJobMap(jobMap);
             setTotalHoursMap(hoursMap);
           } finally {
             setLoading(false);
@@ -629,7 +614,6 @@ export default function StoragePage() {
                     <th className={notionClasses.table.header}>Plate</th>
                     <th className={notionClasses.table.header}>Customer</th>
                     <th className={notionClasses.table.header}>Total Hours</th>
-                    <th className={notionClasses.table.header}>Active Job</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -650,17 +634,6 @@ export default function StoragePage() {
                       </td>
                       <td className={notionClasses.table.cell}>
                         {totalHoursMap[item.id] || "0h 0m"}
-                      </td>
-                      <td className={notionClasses.table.cell}>
-                        <span
-                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                            hasJobMap[item.id]
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {hasJobMap[item.id] ? "Yes" : "No"}
-                        </span>
                       </td>
                     </tr>
                   ))}
@@ -713,7 +686,6 @@ export default function StoragePage() {
             onClose={() => setShowModal(false)}
             onCreated={(newItem) => {
               setItems((p) => [newItem, ...p]);
-              setHasJobMap((p) => ({ ...p, [newItem.id]: false }));
               setTotalHoursMap((p) => ({ ...p, [newItem.id]: "0h 0m" }));
             }}
           />

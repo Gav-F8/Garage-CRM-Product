@@ -23,7 +23,6 @@ import {
   fetchCustomers,
   fetchTotalHoursCustomer,
   fetchEmployeeName,
-  checkHasActiveJobCustomer
 } from "/src/lib/firestore-helpers.js";
 import {
   addDoc,
@@ -135,6 +134,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
 
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -142,6 +142,11 @@ function CreateModal({ onClose, onCreated, businessId }) {
   };
 
   const handleSubmit = async () => {
+    if (localStorage.getItem("ccgUserRole") !== "owner") {
+      setNotice("Only owner can add customer.");
+      return;
+    }
+
     const err = validate(form);
     if (Object.keys(err).length) {
       setErrors(err);
@@ -189,6 +194,12 @@ function CreateModal({ onClose, onCreated, businessId }) {
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
       <div className="bg-white w-full max-w-md rounded-xl border border-[#E0E0E0] shadow-lg p-6 space-y-4">
         <h2 className="text-lg font-semibold text-[#37352F]">New Customer</h2>
+
+        {notice && (
+          <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            {notice}
+          </div>
+        )}
 
         {/* FULL NAME FORM */}
         <Input
@@ -267,7 +278,6 @@ export default function CreateCustomerPage() {
   const [search, setSearch] = useState("");
   const [businessId, setBusinessId] = useState(null);
   const searchInputRef = useRef(null);
-  const [hasJobMap, setHasJobMap] = useState({});
   const [totalHoursMap, setTotalHoursMap] = useState({});
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -287,21 +297,15 @@ export default function CreateCustomerPage() {
           .then(async (customerData) => {
             setCustomers(customerData);
 
-            // Check for jobs and calculate hours in parallel
-            const jobMap = {};
             const hoursMap = {};
 
             await Promise.all(
               customerData.map(async (customer) => {
-                const hasJob = await checkHasActiveJobCustomer(bizId, customer.id);
-                jobMap[customer.id] = hasJob;
-
                 const hours = await fetchTotalHoursCustomer(bizId, customer.id);
                 hoursMap[customer.id] = hours;
               }),
             );
 
-            setHasJobMap(jobMap);
             setTotalHoursMap(hoursMap);
           })
           .finally(() => setLoading(false));
@@ -323,7 +327,6 @@ export default function CreateCustomerPage() {
     setCustomers((prev) => [newCustomer, ...prev]);
     setSearch(""); // Reset search when new customer is added
     setShowModal(false); // Close modal
-    setHasJobMap((p) => ({ ...p, [newCustomer.id]: false }));
     setTotalHoursMap((p) => ({ ...p, [newCustomer.id]: "0h 0m" }));
   };
 
@@ -339,11 +342,6 @@ export default function CreateCustomerPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = filtered.slice(startIndex, endIndex);
-
-  // Reset to page 1 when search changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
 
   return (
     <div className={notionClasses.pageContainer}>
@@ -370,7 +368,7 @@ export default function CreateCustomerPage() {
             <input
               ref={searchInputRef}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Search customers..."
               autoComplete="off"
               spellCheck="false"
@@ -428,7 +426,6 @@ export default function CreateCustomerPage() {
                     <th className={notionClasses.table.header}>Phone</th>
                     <th className={notionClasses.table.header}>Address</th>
                     <th className={notionClasses.table.header}>Total Hours</th>
-                    <th className={notionClasses.table.header}>Active Job</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -450,17 +447,6 @@ export default function CreateCustomerPage() {
                       </td>
                       <td className={notionClasses.table.cell}>
                         {totalHoursMap[c.id] || "0h 0m"}
-                      </td>
-                      <td className={notionClasses.table.cell}>
-                        <span
-                          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
-                            hasJobMap[c.id]
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {hasJobMap[c.id] ? "Yes" : "No"}
-                        </span>
                       </td>
                     </tr>
                   ))}

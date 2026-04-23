@@ -5,8 +5,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import HomePage from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
-import ContactPage from "./pages/Contact";
-
 import CustomerPage from "./pages/Customer";
 import CustomerDetailPage from "./pages/CustomerDetail";
 import EditCustomerPage from "./pages/EditCustomerPage";
@@ -38,14 +36,6 @@ function App() {
           element={
             <ProtectedRoute>
               <HomePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/Contact"
-          element={
-            <ProtectedRoute>
-              <ContactPage />
             </ProtectedRoute>
           }
         />

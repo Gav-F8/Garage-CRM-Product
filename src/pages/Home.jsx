@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";  // ← Remove duplicate useState
 import { auth, db } from "/src/firebase.js";
-import { getDocs, query, collection, where } from "firebase/firestore";
+import { getDocs, collection } from "firebase/firestore";
+import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { NavigationBar } from "../components/NavigationBar";
 import { CreateJobFlow } from "/src/components/CreateJobModal.jsx";
@@ -22,7 +23,7 @@ export default function HomePage() {
 
   const [stats, setStats] = useState({
     totalCustomers: 0,
-    activeProjects: 0,
+    projectsInProgress: 0,
     totalVehicles: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
@@ -47,17 +48,18 @@ export default function HomePage() {
           collection(db, "businesses", businessId, "storage")
         );
 
-        // Count active projects
+        const completeAliases = STATUS_OPTIONS.find(s => s.key === "complete")?.aliases ?? [];
+
         const projectsSnap = await getDocs(
-          query(
-            collection(db, "businesses", businessId, "Projects"),
-            where("isActive", "==", true)
-          )
+          collection(db, "businesses", businessId, "Projects")
         );
+        const projectsInProgress = projectsSnap.docs.filter(
+          (d) => !completeAliases.includes(d.data().status)
+        ).length;
 
         setStats({
           totalCustomers: customersSnap.size,
-          activeProjects: projectsSnap.size,
+          projectsInProgress,
           totalVehicles: vehiclesSnap.size,
         });
       } catch (error) {
@@ -121,9 +123,9 @@ export default function HomePage() {
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-[#787774] uppercase">Active Projects</p>
+                      <p className="text-sm font-medium text-[#787774] uppercase">Projects in Progress</p>
                       <p className="mt-2 text-2xl font-bold text-[#37352F]">
-                        {loadingProjects ? "..." : stats.activeProjects}
+                        {statsLoading ? "..." : stats.projectsInProgress}
                       </p>
                     </div>
                     <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 group-hover:bg-green-200">
