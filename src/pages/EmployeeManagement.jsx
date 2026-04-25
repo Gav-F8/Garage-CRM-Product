@@ -387,6 +387,7 @@ function EmployeeCard({
   onRemove,
   onEdit,
   onSelect,
+  isCurrentUser,
 }) {
   const isLoading = actionLoading === emp.id;
   const joinDate = emp.createdAt
@@ -412,6 +413,11 @@ function EmployeeCard({
         <div className="min-w-0">
           <p className="text-sm font-medium text-[#37352F] truncate group-hover:underline underline-offset-2">
             {emp.Name || "—"}
+            {isCurrentUser && (
+              <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-100 text-blue-700 border-blue-200">
+                You
+              </span>
+            )}
           </p>
           <p className="text-xs text-[#787774] truncate">{emp.email}</p>
           <div className="flex items-center gap-2 mt-0.5">
@@ -657,9 +663,7 @@ export default function EmployeeManagement() {
   const pending = employees.filter(
     (e) => e.role !== "owner" && e.status === "pendingApproval",
   );
-  const active = employees.filter(
-    (e) => e.role === "mechanic" && e.status === "active",
-  );
+  const active = employees.filter((e) => e.status === "active");
   const suspended = employees.filter(
     (e) => e.role !== "owner" && e.status === "suspended",
   );
@@ -780,6 +784,7 @@ export default function EmployeeManagement() {
                       onEdit={() => setEditingEmployee(emp)}
                       onRemove={() => setConfirmAction({ type: "remove", emp })}
                       onSelect={setSelectedEmployee}
+                      isCurrentUser={emp.id === auth.currentUser?.uid}
                     />
                   ))}
                 </div>
