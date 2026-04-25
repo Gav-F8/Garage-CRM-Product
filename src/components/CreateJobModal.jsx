@@ -38,6 +38,8 @@ function CreateButton({ onClick }) {
   );
 }
 
+export { CreateButton };
+
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form
 // ══════════════════════════════════════════════════════════════════════════════
@@ -370,13 +372,19 @@ function CreateModal({
   );
 }
 
+export { CreateModal };
+
 // Combined button + modal component
-export function CreateJobFlow({ submitting, onCreate }) {
-  const [showModal, setShowModal] = useState(false);
+export function CreateJobFlow({ submitting, onCreate, renderButton = true, showModal: externalShowModal, setShowModal: externalSetShowModal }) {
+  const [internalShowModal, setInternalShowModal] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const showModal = externalShowModal !== undefined ? externalShowModal : internalShowModal;
+  const setShowModal = externalSetShowModal || setInternalShowModal;
 
   return (
     <>
-      <CreateButton onClick={() => setShowModal(true)} />
+      {renderButton && <CreateButton onClick={() => setShowModal(true)} />}
       {showModal && (
         <CreateModal
           submitting={submitting}

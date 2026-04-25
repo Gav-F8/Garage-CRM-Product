@@ -1,5 +1,5 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";  // ← Remove duplicate useState
 import { auth, db } from "/src/firebase.js";
 import { getDocs, collection } from "firebase/firestore";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
@@ -9,8 +9,7 @@ import { CreateJobFlow } from "/src/components/CreateJobModal.jsx";
 import ProjectsList from "../components/ProjectsList";
 
 export default function HomePage() {
-  const [showCreateModal, setShowCreateModal] = useState(false);  // ← Add this
-  const [submitting, setSubmitting] = useState(false);  // ← Add this
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const {
     projects,
@@ -90,26 +89,27 @@ export default function HomePage() {
             {/* Quick Start - Create Job Button */}
             <div>
               <h2 className="text-lg font-semibold text-[#37352F] mb-4">Quick Start</h2>
-              <Link
-                to="/jobs"
+              <button
+                onClick={() => setShowCreateModal(true)}
                 className="block w-full bg-[#37352F] text-white px-6 py-4 rounded-lg font-medium hover:bg-[#474540] transition-colors shadow-sm text-center"
               >
                 <div className="flex items-center justify-center gap-3">
                   <svg className="w-5 h-5 stroke-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <button onClick={() => setShowCreateModal(true)}>Create New Job</button>
-                  {showCreateModal && (
-                    <CreateJobFlow 
-                      submitting={submitting} 
-                      onCreate={async (payload) => {
-                        // handle creation
-                        return true;
-                      }} 
-                    />
-                  )}
+                  Create New Job
                 </div>
-              </Link>
+              </button>
+              <CreateJobFlow 
+                submitting={false}
+                renderButton={false}
+                showModal={showCreateModal}
+                setShowModal={setShowCreateModal}
+                onCreate={async (payload) => {
+                  // handle creation
+                  return true;
+                }} 
+              />
             </div>
 
             {/* Key Metrics */}

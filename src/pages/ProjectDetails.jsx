@@ -669,14 +669,12 @@ export default function ProjectDetailsPage() {
                   ← Back to Jobs
                 </button>
 
-                {isOwner && (
                   <button
                     onClick={() => navigate(`/projects/${projectId}/edit`)}
                     className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
                   >
                     Edit
                   </button>
-                )}
               </div>
             </div>
 

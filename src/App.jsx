@@ -17,9 +17,7 @@ import ProjectPage from "./pages/Project";
 import ProjectDetailsPage from "./pages/ProjectDetails";
 import EditProjectPage from "./pages/EditProjectPage";
 
-import BusinessHome from "./pages/business/Home";
-import EmployeeHome from "./pages/employee/Home";
-import EmployeeManagement from "./pages/business/EmployeeManagement";
+import EmployeeManagement from "./pages/EmployeeManagement";
 
 function App() {
   return (
@@ -72,26 +70,10 @@ function App() {
           }
         />
         <Route
-          path="/business/home"
-          element={
-            <ProtectedRoute>
-              <BusinessHome />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/business/employees"
+          path="/employees"
           element={
             <ProtectedRoute>
               <EmployeeManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/employee/home"
-          element={
-            <ProtectedRoute>
-              <EmployeeHome />
             </ProtectedRoute>
           }
         />

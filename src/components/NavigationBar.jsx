@@ -115,8 +115,8 @@ export function NavigationBar() {
                 ))}
                 {userRole === "owner" && (
                   <Link
-                    to="/business/employees"
-                    className={linkClass("/business/employees")}
+                    to="/employees"
+                    className={linkClass("/employees")}
                   >
                     Team
                   </Link>

@@ -9,8 +9,8 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { auth, db } from "../../firebase";
-import { NavigationBar } from "../../components/NavigationBar";
+import { auth, db } from "../firebase";
+import { NavigationBar } from "../components/NavigationBar";
 import { notionClasses } from "@/lib/notion-theme";
 import {
   Loader2,
