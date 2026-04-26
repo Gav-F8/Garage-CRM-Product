@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
-import { getDocs, collection } from "firebase/firestore";
+import { getDocs, addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { NavigationBar } from "../components/NavigationBar";
@@ -106,9 +106,19 @@ export default function HomePage() {
                 showModal={showCreateModal}
                 setShowModal={setShowCreateModal}
                 onCreate={async (payload) => {
-                  // handle creation
-                  return true;
-                }} 
+                  try {
+                    const businessId = localStorage.getItem("ccgBusinessId");
+                    const docRef = await addDoc(collection(db, "businesses", businessId, "Projects"), {
+                      ...payload,
+                      createdAt: serverTimestamp(),
+                      updatedAt: serverTimestamp(),
+                    });
+                    return docRef.id;
+                  } catch (error) {
+                    console.error(error);
+                    return false;
+                  }
+                }}
               />
             </div>
 

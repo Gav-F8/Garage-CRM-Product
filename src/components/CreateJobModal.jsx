@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { fetchCustomers, fetchStorage, fetchMechanics } from "/src/lib/firestore-helpers.js";
 
@@ -49,6 +50,9 @@ function CreateModal({
   onClose,
   onCreate,
 }) {
+  const navigate = useNavigate();
+  
+  // Form state
   const [form, setForm] = useState(INITIAL_JOB_FORM);
   const [errors, setErrors] = useState({});
   const [selectedMechanicId, setSelectedMechanicId] = useState("");
@@ -142,7 +146,7 @@ function CreateModal({
       return;
     }
     
-    const ok = await onCreate({
+    const jobId = await onCreate({
       title: form.title.trim(),
       customerId: form.customerId,
       carId: form.carId,
@@ -151,9 +155,10 @@ function CreateModal({
       assignedMechanicIds: form.assignedMechanicIds,
     });
     
-    if (ok) {
+    if (jobId) {
       setForm(INITIAL_JOB_FORM);
       onClose();
+      navigate(`/projects/${jobId}`);
     }
   };
 

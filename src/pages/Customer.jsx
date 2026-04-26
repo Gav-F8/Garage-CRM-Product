@@ -182,6 +182,9 @@ function CreateModal({ onClose, onCreated, businessId }) {
         createdByEmployeeName: employeeName,
       });
 
+      // Clear the customer cache to ensure new customer appears in list
+      localStorage.removeItem(`customers_${businessId}`);
+
       onClose();
     } catch (error) {
       console.error("Error creating customer:", error);

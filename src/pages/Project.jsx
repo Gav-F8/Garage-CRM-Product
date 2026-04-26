@@ -178,13 +178,8 @@ export default function ProjectPage() {
         collection(db, "businesses", businessId, "Projects"),
         jobData,
       );
-      
-      //Redirects to newly created job page (Interupts setSubmitMessage)
-      navigate(`/projects/${jobRef.id}`);
 
-      // Shows success message if not already redirected
-      setSubmitMessage(`Project created successfully! ID: ${jobRef.id}.`);
-      return true;
+      return jobRef.id;
     } catch (creationError) {
       console.error("Error creating project:", creationError);
       setSubmitError(
