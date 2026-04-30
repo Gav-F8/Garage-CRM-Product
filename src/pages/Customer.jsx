@@ -32,14 +32,8 @@ import {
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 
-async function createCustomer(businessId, data) {
+async function createCustomer(businessId, data, employeeName) {
   const currentUserId = auth.currentUser?.uid || null;
-  let employeeName = null;
-
-  if (currentUserId) {
-    employeeName = await fetchEmployeeName(businessId, currentUserId);
-  }
-
   const docRef = await addDoc(
     collection(db, "businesses", businessId, "Customers"),
     {
@@ -50,7 +44,6 @@ async function createCustomer(businessId, data) {
       updatedAt: serverTimestamp(),
     },
   );
-
   return { id: docRef.id };
 }
 
@@ -157,27 +150,23 @@ function CreateModal({ onClose, onCreated, businessId }) {
 
     try {
       const currentUserId = auth.currentUser?.uid || null;
-      let employeeName = null;
+      const employeeName = currentUserId
+        ? await fetchEmployeeName(businessId, currentUserId)
+        : null;
 
-      if (currentUserId) {
-        employeeName = await fetchEmployeeName(businessId, currentUserId);
-      }
-
-      const { id } = await createCustomer(businessId, {
+      const formData = {
         name: form.name.trim(),
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         address: form.address.trim() || null,
         notes: form.notes.trim() || null,
-      });
+      };
+
+      const { id } = await createCustomer(businessId, formData, employeeName);
 
       onCreated({
         id,
-        name: form.name.trim(),
-        phone: form.phone.trim() || null,
-        email: form.email.trim() || null,
-        address: form.address.trim() || null,
-        notes: form.notes.trim() || null,
+        ...formData,
         createdByEmployeeId: currentUserId,
         createdByEmployeeName: employeeName,
       });

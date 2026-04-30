@@ -85,15 +85,8 @@ async function fetchStorage(businessId) {
 // New Vehicle Creation Form and validation logic
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function createStorage(businessId, data) {
+async function createStorage(businessId, data, employeeName) {
   const currentUserId = auth.currentUser?.uid || null;
-  let employeeName = null;
-
-  if (currentUserId) {
-    employeeName = await fetchEmployeeName(businessId, currentUserId);
-  }
-
-  // Create carLabel by combining year, make, and model
   const carLabel = [data.year, data.make, data.model].filter(Boolean).join(" ");
 
   const ref = await addDoc(
@@ -213,24 +206,23 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
     setSaving(true);
     try {
       const currentUserId = auth.currentUser?.uid || null;
-      let employeeName = null;
-
-      if (currentUserId) {
-        employeeName = await fetchEmployeeName(businessId, currentUserId);
-      }
+      const employeeName = currentUserId
+        ? await fetchEmployeeName(businessId, currentUserId)
+        : null;
 
       const cleanData = {
         ...form,
         plate: form.plate.trim().toUpperCase(),
         year: Number(form.year),
+        color: form.color.trim() || null,
         mileage: form.mileage ? Number(form.mileage) : null,
         vin: form.vin.trim() || null,
+        notes: form.notes.trim() || null,
         customerId: form.customerId || null,
       };
 
-      const id = await createStorage(businessId, cleanData);
+      const id = await createStorage(businessId, cleanData, employeeName);
 
-      // Create carLabel for display
       const carLabel = [cleanData.year, cleanData.make, cleanData.model]
         .filter(Boolean)
         .join(" ");
@@ -240,7 +232,7 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
         ...cleanData,
         carLabel: carLabel || null,
         createdByEmployeeId: currentUserId,
-        createdByEmployeeAcc: employeeName,
+        createdByEmployeeName: employeeName,
       });
       onClose();
     } catch (err) {
