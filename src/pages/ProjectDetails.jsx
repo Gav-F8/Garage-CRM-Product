@@ -20,6 +20,11 @@ import { statusStyle } from "/src/lib/utils.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 
+// Genuinly dont know if or how any of this works, lowkey wil figure it out eventually tho
+// schizo code
+// dissocioiative code
+// worst code ive ever not written
+
 export default function ProjectDetailsPage() {
   // Route navigation and identifier.
   const navigate = useNavigate();
@@ -37,6 +42,8 @@ export default function ProjectDetailsPage() {
   
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [timerNote, setTimerNote] = useState("");
+  const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
   
   const [newMinutes, setNewMinutes] = useState("");
   const [newLogNote, setNewLogNote] = useState("");
@@ -48,15 +55,22 @@ export default function ProjectDetailsPage() {
   const [editLogNote, setEditLogNote] = useState("");
   const [editWorkDate, setEditWorkDate] = useState("");
   
-  const { timerSeconds, setTimerSeconds, isTimerRunning, setIsTimerRunning, clearTimer, resetTimer } = useTimerPersistence(projectId);
-  const [isActive, setIsActive] = useState(false);
-  const [timerNote, setTimerNote] = useState("");
-  const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
-  const intervalRef = useRef(null);
-  const isMountedRef = useRef(true);
   const notesUnsubscribeRef = useRef(null);
   const timeLogsUnsubscribeRef = useRef(null);
   const businessId = localStorage.getItem("ccgBusinessId");
+
+  const { 
+    timerSeconds,
+    isActive,
+    isLoading: timerLoading,
+    error: timerError,
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    resetTimer,
+    submitTimer,
+  } = useTimerPersistence(projectId, businessId);
+  console.log("📱 ProjectDetails received from hook:", { timerSeconds, isActive });
 
   // Sets up real-time listener for Notes, sorted by newest first
   function setupNotesListener() {
@@ -241,11 +255,6 @@ export default function ProjectDetailsPage() {
         }
 
         const projectData = { id: projectSnap.id, ...projectSnap.data() };
-        
-        const projectIsActive = projectData.isActive === true;
-        setIsActive(projectIsActive);
-        setIsTimerRunning(projectIsActive);
-
         setProject(projectData);
         if (projectData.carId) {
           const carRef = doc(
@@ -282,90 +291,6 @@ export default function ProjectDetailsPage() {
 
   // If timer running set active state to true else false.
   // Mirrors timer state into local isActive state.
-  useEffect(() => {
-    setIsActive(isTimerRunning);
-  }, [isTimerRunning]);
-
-  // Persists active/inactive timer state to project document.
-  useEffect(() => {
-    async function syncProjectActiveState() {
-      if (!businessId || !projectId || !project) return;
-      if (project.isActive === isTimerRunning) return;
-
-      try {
-        const projectRef = doc(
-          db,
-          "businesses",
-          businessId,
-          "Projects",
-          projectId,
-        );
-        await updateDoc(projectRef, {
-          isActive: isTimerRunning,
-          updatedAt: serverTimestamp(),
-        });
-
-        setProject((prev) =>
-          prev
-            ? { ...prev, isActive: isTimerRunning, updatedAt: Timestamp.now() }
-            : prev,
-        );
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    syncProjectActiveState();
-  }, [businessId, projectId, project, isTimerRunning]);
-
-  // Drives the 1-second stopwatch tick loop.
-  useEffect(() => {
-    if (isTimerRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimerSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isTimerRunning]);
-
-
-  // Stops Timer if running
-  // Runs cleanup on unmount, if project is still active, set it to inactive to prevent orphaned active projects.
-  useEffect(() => {
-      return () => {
-        isMountedRef.current = false;
-        if (projectId && businessId && project) {
-          try {
-            const projectRef = doc(
-              db,
-              "businesses",
-              businessId,
-              "Projects",
-              projectId
-            );
-            updateDoc(projectRef, {
-              isActive: false,
-              updatedAt: serverTimestamp(),
-            }).catch(err => console.error("Failed to update project on unmount", err));
-          } catch (err) {
-            console.error("Error in unmount cleanup", err);
-          }
-        }
-      };
-    }, []); // Empty dependency array ensures this runs only on unmount
-
-  // Sets isMountedRef to true when component mounts.
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   // Adds a project note authored by the current employee.
   async function handleAddNote() {
@@ -498,10 +423,8 @@ export default function ProjectDetailsPage() {
         createdAt: serverTimestamp(),
       });
 
-      setTimerSeconds(0);
       setTimerNote("");
-      setIsTimerRunning(false);
-      clearTimer(); // Clear localStorage after successful submission
+      submitTimer(); // Clear localStorage after successful submission
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to submit stopwatch time log.");
@@ -734,15 +657,6 @@ export default function ProjectDetailsPage() {
                   </div>
 
                   <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">
-                      Description
-                    </span>
-                    <span className="text-[#787774] text-right max-w-[60%] break-words whitespace-pre-wrap">
-                      {project.description ?? "-"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">Status</span>
                     <span className="text-[#787774] block mt-1">
                       {project.status ? statusMeta.label : "-"}
@@ -803,8 +717,34 @@ export default function ProjectDetailsPage() {
 
               <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6">
                 <h2 className="text-lg font-semibold text-[#37352F] mb-5">
-                  Notes
+                  Description
                 </h2>
+
+                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                  {notes.length ? (
+                    notes.map((note) => (
+                      <div
+                        key={project.description}
+                        className="rounded-lg border border-[#E0E0E0] bg-[#FAFAF9] p-4"
+                      >
+                        <p className="text-sm text-[#37352F] mb-3 break-words whitespace-pre-wrap">
+                          {project.description || "No description available"}
+                        </p>
+                        <div className="flex flex-col gap-1 text-xs text-[#787774]">
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-[#787774]">
+                      No description available for this job.
+                    </p>
+                  )}
+                </div>
+                
+              <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
+                <h3 className="text-sm font-semibold text-[#37352F] mb-3">
+                  Notes
+                </h3>
 
                 <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
                   {notes.length ? (
@@ -838,6 +778,7 @@ export default function ProjectDetailsPage() {
                     </p>
                   )}
                 </div>
+              </div>
 
                 <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
                   <h3 className="text-sm font-semibold text-[#37352F] mb-3">
@@ -951,7 +892,6 @@ export default function ProjectDetailsPage() {
                                 </span>
                               ) : null}
                             </div>
-
                             {canManageLog(log) && (
                               <div className="flex gap-2">
                                 <button
@@ -988,39 +928,36 @@ export default function ProjectDetailsPage() {
                     </p>
 
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {!isTimerRunning && timerSeconds === 0 && (
+                      {!isActive && timerSeconds === 0 && (
                         <button
-                          onClick={() => setIsTimerRunning(true)}
-                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                          onClick={startTimer}
+                          className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium transition-all"
                         >
                           Start
                         </button>
                       )}
 
-                      {isTimerRunning && (
+                      {isActive && (
                         <button
-                          onClick={() => setIsTimerRunning(false)}
-                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                          onClick={pauseTimer}
+                          className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium transition-all"
                         >
                           Pause
                         </button>
                       )}
 
-                      {!isTimerRunning && timerSeconds > 0 && (
+                      {!isActive && timerSeconds > 0 && (
                         <button
-                          onClick={() => setIsTimerRunning(true)}
-                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                          onClick={resumeTimer}
+                          className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium transition-all"
                         >
                           Resume
                         </button>
                       )}
 
                       <button
-                        onClick={() => {
-                          resetTimer();
-                          setTimerNote("");
-                        }}
-                        className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                        onClick={resetTimer}
+                        className="h-9 px-3 rounded-lg bg-[#E0E0E0] hover:bg-[#D0D0D0] text-[#37352F] text-sm font-medium transition-all"
                       >
                         Reset
                       </button>
