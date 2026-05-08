@@ -22,7 +22,9 @@ import { useNavigate } from "react-router-dom";
 import {
   fetchCustomers,
   fetchTotalHoursCustomer,
-  fetchEmployeeName,
+  fetchEmployeeDetail,
+  extractName,
+  createCustomer,
 } from "/src/lib/firestore-helpers.js";
 import {
   addDoc,
@@ -32,27 +34,29 @@ import {
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 
-async function createCustomer(businessId, data) {
-  const currentUserId = auth.currentUser?.uid || null;
-  let employeeName = null;
+// async function createCustomer(businessId, data) {
+//   const currentUserId = auth.currentUser?.uid || null;
+//   let employeeName = null;
 
-  if (currentUserId) {
-    employeeName = await fetchEmployeeName(businessId, currentUserId);
-  }
+//   if (currentUserId) {
+//     employeeName =  extractName(await fetchEmployeeDetail(businessId, currentUserId), "Name");
+//   }
 
-  const docRef = await addDoc(
-    collection(db, "businesses", businessId, "Customers"),
-    {
-      ...data,
-      createdByEmployeeId: currentUserId,
-      createdByEmployeeName: employeeName,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
-  );
+//   const docRef = await addDoc(
+//     collection(db, "businesses", businessId, "Customers"),
+//     {
+//       ...data,
+//       createdByEmployeeId: currentUserId,
+//       createdByEmployeeName: employeeName,
+//       createdAt: serverTimestamp(),
+//       updatedAt: serverTimestamp(),
+//     },
+//   );
 
-  return { id: docRef.id };
-}
+//   return { id: docRef.id };
+// }
+
+// const nutsack = await createCustomer(businessId, data);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Customer Creation Form and validation logic
@@ -160,7 +164,7 @@ function CreateModal({ onClose, onCreated, businessId }) {
       let employeeName = null;
 
       if (currentUserId) {
-        employeeName = await fetchEmployeeName(businessId, currentUserId);
+        employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId), "name");
       }
 
       const { id } = await createCustomer(businessId, {
@@ -169,6 +173,10 @@ function CreateModal({ onClose, onCreated, businessId }) {
         email: form.email.trim() || null,
         address: form.address.trim() || null,
         notes: form.notes.trim() || null,
+        createdByEmployeeId: currentUserId,
+        createdByEmployeeName: employeeName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
 
       onCreated({
@@ -286,7 +294,6 @@ export default function CreateCustomerPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
-
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {

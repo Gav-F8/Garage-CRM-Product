@@ -13,8 +13,14 @@ import {
   query,
   serverTimestamp,
   Timestamp,
-  updateDoc,
 } from "firebase/firestore";
+import {
+  formatTimestamp,
+  formatWorkDate,
+  formatTotalMinutes,
+  formatTimer,
+  updateProjectTimelogValue,
+} from "../lib/firestore-helpers.js";
 import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
 import { statusStyle } from "/src/lib/utils.js";
 import { NavigationBar } from "/src/components/NavigationBar";
@@ -229,6 +235,7 @@ export default function ProjectDetailsPage() {
           "Employees",
           currentUid,
         );
+        
         const employeeSnap = await getDoc(employeeRef);
 
         if (!employeeSnap.exists()) {
@@ -307,27 +314,22 @@ export default function ProjectDetailsPage() {
     setError("");
 
     try {
-      const notesRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "Notes",
-      );
-
-      await addDoc(notesRef, {
+      const success = await createProjectNotes(businessId, projectId, {
         text: trimmedNote,
         createdByUid: currentUid,
         createdByEmployeeName: currentEmployee?.Name || "Unknown",
         createdAt: serverTimestamp(),
       });
 
-      setNewNote("");
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to add note.");
-    } finally {
+      if (success) {
+        setNewNote("");
+      }
+
+      else {
+        setError(err.message || "Failed to add note.");
+      }
+    } 
+    finally {
       setAddingNote(false);
     }
   }
@@ -354,31 +356,25 @@ export default function ProjectDetailsPage() {
     setError("");
 
     try {
-      const logsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "TimeLogs",
-      );
-
-      await addDoc(logsRef, {
+      const success = await createProjectTimelog(businessId, projectId, {
         EmployeeName: currentEmployee?.Name || "Unknown",
         Uid: currentUid,
         minutes: Number(newMinutes),
         note: newLogNote.trim() || "",
         workDate: Timestamp.fromDate(new Date(`${newWorkDate}T00:00:00`)),
         createdAt: serverTimestamp(),
-      });
-
-      setNewMinutes("");
-      setNewLogNote("");
-      setNewWorkDate("");
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to add time log.");
-    } finally {
+      })
+      
+      if (success) {
+        setNewMinutes("");
+        setNewLogNote("");
+        setNewWorkDate("");
+      }
+      else {
+        setError("Failed to add time log.");
+      }
+    }
+    finally {
       setSavingTimeLog(false);
     }
   }
@@ -401,20 +397,11 @@ export default function ProjectDetailsPage() {
     setSavingStopwatchLog(true);
     setError("");
 
-    try {
-      const logsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "TimeLogs",
-      );
-
+    try{
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
-      await addDoc(logsRef, {
+  
+      const success = await createProjectTimelog(businessId, projectId, {
         EmployeeName: currentEmployee?.Name || "Unknown",
         Uid: currentUid,
         minutes: totalMinutes,
@@ -422,13 +409,17 @@ export default function ProjectDetailsPage() {
         workDate: Timestamp.fromDate(today),
         createdAt: serverTimestamp(),
       });
-
-      setTimerNote("");
-      submitTimer(); // Clear localStorage after successful submission
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to submit stopwatch time log.");
-    } finally {
+  
+      if (success) {
+        setTimerNote("");
+        submitTimer(); // Clear localStorage after successful submission
+      }
+  
+      else {
+        setError(err.message || "Failed to submit stopwatch time log.");
+      }
+    }
+    finally {
       setSavingStopwatchLog(false);
     }
   }
@@ -488,64 +479,24 @@ export default function ProjectDetailsPage() {
       return;
     }
 
-    try {
-      const logRef = doc(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "TimeLogs",
-        logId,
-      );
+    const success = await updateProjectTimelogValue(businessId, projectId, logId, {
+      minutes: Number(editMinutes),
+      note: editLogNote.trim() || "",
+      workDate: Timestamp.fromDate(new Date(`${editWorkDate}T00:00:00`)),
+    });
 
-      await updateDoc(logRef, {
-        minutes: Number(editMinutes),
-        note: editLogNote.trim() || "",
-        workDate: Timestamp.fromDate(new Date(`${editWorkDate}T00:00:00`)),
-      });
-
+    if (success) {
       cancelEditingLog();
-    } catch (err) {
+    }
+
+    else {
       console.error(err);
       setError(err.message || "Failed to update time log.");
     }
   }
 
-  // Formatting helpers used across the details and logs UI.
-  function formatTimestamp(timestamp) {
-    if (!timestamp) return "-";
-    if (timestamp.toDate) return timestamp.toDate().toLocaleString();
-    return String(timestamp);
-  }
-
-  function formatWorkDate(timestamp) {
-    if (!timestamp) return "-";
-    if (timestamp.toDate) return timestamp.toDate().toLocaleDateString();
-    return String(timestamp);
-  }
-
   function getTotalMinutes() {
     return timeLogs.reduce((sum, log) => sum + (Number(log.minutes) || 0), 0);
-  }
-
-  function formatTotalMinutes(totalMinutes) {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours === 0) return `${minutes} min`;
-    if (minutes === 0) return `${hours}h`;
-    return `${hours}h ${minutes}m`;
-  }
-
-  function formatTimer(seconds) {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    return [hrs, mins, secs]
-      .map((value) => String(value).padStart(2, "0"))
-      .join(":");
   }
 
   const isOwner = currentEmployee?.role === "owner";
@@ -554,10 +505,6 @@ export default function ProjectDetailsPage() {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return false;
     return isOwner || log.Uid === currentUid;
-  }
-
-  function isActiveProject(project) {
-    return project.isActive === true;
   }
 
   // Main page render with loading/error/empty branches.

@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
 import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
 import {
-  fetchCustomerName,
+  extractName,
+  fetchCustomerDetail,
   fetchTotalTimeLogsVehicle,
   fetchVehicleDetail,
   fetchRelatedProjectsByVehicle
@@ -50,7 +51,7 @@ export default function StorageDetailPage() {
         if (storageData) {
           // Fetch customer name
           if (storageData.customerId) {
-            const name = await fetchCustomerName(bizId, storageData.customerId);
+            const name = extractName(await fetchCustomerDetail(bizId, storageData.customerId));
             setCustomerName(name);
           }
 

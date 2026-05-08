@@ -34,9 +34,11 @@ import {
 import { 
   fetchBusinessId,
   fetchCustomers,
-  fetchEmployeeName,
   fetchMechanics,
-  fetchStorage,
+  fetchVehicles,
+  fetchEmployeeDetail,
+  createProject,
+  extractName,
 } from "../lib/firestore-helpers";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { STATUS_OPTIONS } from "../lib/utils.js";
@@ -91,7 +93,7 @@ export default function ProjectPage() {
 
         const [customerList, vehicleList, mechanicList] = await Promise.all([
           fetchCustomers(bizId),
-          fetchStorage(bizId),
+          fetchVehicles(bizId),
           fetchMechanics(bizId),
         ]);
 
@@ -121,10 +123,11 @@ export default function ProjectPage() {
         throw new Error("No authenticated user found.");
       }
 
-      const createdByEmployeeName = await fetchEmployeeName(
-        businessId,
-        currentUser.uid,
-      );
+      const createdByEmployeeName = extractName(
+        await fetchEmployeeDetail(
+          businessId,
+          currentUser.uid
+        ), "Name");
 
       const selectedCustomer = customers.find(
         (customer) => customer.id === payload.customerId,
@@ -174,10 +177,7 @@ export default function ProjectPage() {
         lastNoteText: null,
       };
 
-      const jobRef = await addDoc(
-        collection(db, "businesses", businessId, "Projects"),
-        jobData,
-      );
+      const jobRef = await createProject(businessId, jobData);
 
       return jobRef.id;
     } catch (creationError) {

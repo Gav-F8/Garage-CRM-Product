@@ -88,22 +88,15 @@ export default function EditCustomerPage() {
     setError("");
 
     try {
-      const customerRef = doc(
-        db,
-        "businesses",
-        businessId,
-        "Customers",
-        customerId,
-      );
-      await updateDoc(customerRef, {
-        ...formData,
-        updatedAt: serverTimestamp(),
-      });
-      navigate(`/customer/${customerId}`);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to save customer.");
-    } finally {
+      const success = await updateCustomerValue(businessId, customerId, formData)
+      if (success) {
+        navigate(`/customer/${customerId}`);
+      }
+      else {
+        setError(err.message || "Failed to save customer.");
+      }
+    }
+    finally {
       setSaving(false);
     }
   }

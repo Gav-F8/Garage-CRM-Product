@@ -6,7 +6,6 @@ import {
   getDocs,
   doc,
   getDoc,
-  updateDoc,
   deleteDoc,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
@@ -591,36 +590,30 @@ export default function EmployeeManagement() {
 
   const handleApprove = async (uid) => {
     setActionLoading(uid);
-    try {
-      await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        status: "active",
-      });
+    const success = await updateEmployeeValue(businessId, uid, {status: "active"});
+    if (success) {
       setEmployees((prev) =>
         prev.map((e) => (e.id === uid ? { ...e, status: "active" } : e)),
       );
-    } catch (err) {
-      setError("Failed to approve employee.");
-      console.error(err);
-    } finally {
-      setActionLoading(null);
     }
+    else {
+      setError("Failed to approve employee.");
+    }
+    setActionLoading(null);
   };
 
   const handleDecline = async (uid) => {
     setActionLoading(uid);
-    try {
-      await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        status: "rejected",
-      });
+    const success = await updateEmployeeValue(businessId, uid, {status: "rejected"});
+    if (success) {
       setEmployees((prev) =>
         prev.map((e) => (e.id === uid ? { ...e, status: "rejected" } : e)),
       );
-    } catch (err) {
-      setError("Failed to decline employee.");
-      console.error(err);
-    } finally {
-      setActionLoading(null);
     }
+    else {
+      setError("Failed to decline employee.");
+    }
+    setActionLoading(null);
   };
 
   const handleRemove = async (uid) => {
@@ -644,18 +637,17 @@ export default function EmployeeManagement() {
     }
     setSavingEdit(true);
     try {
-      await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        status: newStatus,
-        role: newRole,
-      });
-      setEmployees((prev) =>
-        prev.map((e) => (e.id === uid ? { ...e, status: newStatus, role: newRole } : e)),
-      );
-      setEditingEmployee(null);
-    } catch (err) {
-      setError("Failed to update employee.");
-      console.error(err);
-    } finally {
+      const success = await updateEmployeeValue(businessId, uid, {status: newStatus, role: newRole});
+      if (success) {
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === uid ? { ...e, status: newStatus, role: newRole } : e)),
+        );
+      }
+      else {
+        setError("Failed to update employee.");
+      }
+    }
+    finally {
       setSavingEdit(false);
     }
   };

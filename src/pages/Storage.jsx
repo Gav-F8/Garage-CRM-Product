@@ -46,8 +46,11 @@ import {
   query,
 } from "firebase/firestore";
 import {
-  fetchEmployeeName,
+  fetchEmployeeDetail,
   fetchTotalHoursVehicle,
+  fetchVehicleDetail,
+  fetchVehicles,
+  extractName,
 } from "/src/lib/firestore-helpers.js";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/utils.js";
@@ -71,15 +74,15 @@ const BLANK = {
 // Firestore Helpers
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function fetchStorage(businessId) {
-  const snap = await getDocs(
-    query(
-      collection(db, "businesses", businessId, "storage"),
-      orderBy("createdAt", "desc"),
-    ),
-  );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-}
+// async function fetchVehicles(businessId) {
+//   const snap = await getDocs(
+//     query(
+//       collection(db, "businesses", businessId, "storage"),
+//       orderBy("createdAt", "desc"),
+//     ),
+//   );
+//   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+// }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Vehicle Creation Form and validation logic
@@ -90,7 +93,7 @@ async function createStorage(businessId, data) {
   let employeeName = null;
 
   if (currentUserId) {
-    employeeName = await fetchEmployeeName(businessId, currentUserId);
+    employeeName = extractName(await fetchEmployeeDetail(businessId, "Employees", currentUserId), "name");
   }
 
   // Create carLabel by combining year, make, and model
@@ -216,7 +219,7 @@ function CreateModal({ businessId, customers, onClose, onCreated }) {
       let employeeName = null;
 
       if (currentUserId) {
-        employeeName = await fetchEmployeeName(businessId, currentUserId);
+        employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId));
       }
 
       const cleanData = {
@@ -493,7 +496,7 @@ export default function StoragePage() {
         }
         
         try {
-          const storageData = await fetchStorage(bizId);
+          const storageData = await fetchVehicles(bizId);
           setItems(storageData);
 
             const hoursMap = {};

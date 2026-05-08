@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
-  onSnapshot,  // ← New import
+  onSnapshot,
   getDocs,
   query,
   collection,
-  where,
   orderBy,
   limit,
   startAfter,
   doc
 } from "firebase/firestore";
+import {
+  fetchCustomers,
+} from "../lib/firestore-helpers";
 import { auth, db } from "/src/firebase.js";
 
 // Context for fetching customer data for the current business. Returns list of customers with loading/error state.
@@ -35,17 +37,7 @@ export function useCustomersForCurrentUser(businessId) {
           return;
         }
 
-        const customersSnap = await getDocs(
-          query(
-            collection(db, "businesses", businessId, "Customers"),
-            orderBy("name")
-          )
-        );
-        
-        const customersData = customersSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const customersData = await fetchCustomers(businessId);
 
         localStorage.setItem(cacheKey, JSON.stringify(customersData));
         setCustomers(customersData);

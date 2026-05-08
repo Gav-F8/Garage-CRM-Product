@@ -5,7 +5,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  updateDoc,
   deleteDoc,
   collection,
   query,
@@ -13,7 +12,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
-import { fetchMechanics, fetchStorage } from "/src/lib/firestore-helpers.js";
+import { fetchMechanics, fetchVehicles, fetchProjectDetail, updateProjectValue } from "/src/lib/firestore-helpers.js";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar";
@@ -70,7 +69,7 @@ export default function EditProjectPage() {
     async function loadVehicles() {
       if (!businessId) return;
       try {
-        const vehiclesList = await fetchStorage(businessId);
+        const vehiclesList = await fetchVehicles(businessId);
         setVehicles(vehiclesList);
       } catch (err) {
         console.error("Error loading vehicles:", err);
@@ -89,52 +88,33 @@ export default function EditProjectPage() {
       }
 
       try {
-        const projectRef = doc(
-          db,
-          "businesses",
-          businessId,
-          "Projects",
-          projectId,
-        );
-        const [projectSnap, customersSnap] = await Promise.all([
-          getDoc(projectRef),
-          getDocs(
-            query(
-              collection(db, "businesses", businessId, "Customers"),
-              orderBy("name")
-            )
-          ),
-        ]);
-
-        if (!projectSnap.exists()) {
+        const projectSnap = await fetchProjectDetail(businessId, projectId)
+        if (!projectSnap) {
           setError("Project not found.");
           setLoading(false);
           return;
         }
 
-        const data = projectSnap.data();
-
         const allowedStatusKeys = new Set(
           STATUS_OPTIONS.map((status) => status.key),
         );
-        const loadedStatus = data.status || "";
+        const loadedStatus = projectSnap.status || "";
         const safeStatus = allowedStatusKeys.has(loadedStatus)
           ? loadedStatus
           : "";
 
         setForm({
-          title: data.title || "",
+          title: projectSnap.title || "",
           status: safeStatus,
-          customerId: data.customerId || "",
-          customerName: data.customerName || "",
-          carId: data.carId || "",
-          carLabel: data.carLabel || "",
-          description: data.description || "",
-          assignedMechanicIds: data.assignedMechanicIds || [],
+          customerId: projectSnap.customerId || "",
+          customerName: projectSnap.customerName || "",
+          carId: projectSnap.carId || "",
+          carLabel: projectSnap.carLabel || "",
+          description: projectSnap.description || "",
+          assignedMechanicIds: Array.isArray(projectSnap.assignedMechanicIds) 
+          ? projectSnap.assignedMechanicIds 
+          : Object.keys(projectSnap.assignedMechanicIds || {}),
         });
-
-      } catch (err) {
-        setError(err.message);
       } finally {
         setLoading(false);
       }
@@ -178,28 +158,24 @@ export default function EditProjectPage() {
     e.preventDefault();
     setSaving(true);
     setError("");
-
+    
     try {
-      const projectRef = doc(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-      );
-
-      await updateDoc(projectRef, {
-        ...form,
-        updatedAt: serverTimestamp(),
-      });
-
-      navigate(`/projects/${projectId}`);
-    } catch (err) {
-      setError(err.message);
-    } finally {
+      const success = await updateProjectValue(businessId, projectId, form);
+  
+      if (success) {
+        navigate(`/projects/${projectId}`);
+      }
+  
+      else {
+        setError(err.message);
+      }
+    }
+    finally {
       setSaving(false);
     }
   }
+
+  
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -370,6 +346,7 @@ export default function EditProjectPage() {
               <label className="text-sm font-medium text-[#37352F]">
                 Assigned Mechanics*
               </label>
+
               <select
                 value={selectedMechanicId}
                 onChange={(e) => addMechanic(e.target.value)}

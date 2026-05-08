@@ -31,12 +31,6 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { STATUS_OPTIONS, getStatusMeta, statusStyle, isWIPStatus, isCompleteStatus } from "../lib/utils.js";
 
-
-// Utility functions
-function isActiveProject(project) {
-  return project.isActive === true;
-}
-
 // Uses toMillis to normalize timestamp to ms then compare the last updated timestamps of projects
 function updatedMillisForProject(project) {
   const toMillis = (value) => {
@@ -77,7 +71,7 @@ function Dropdown({ value, onChange, options, className }) {
 
 function ProjectRow({ project }) {
   const { label, style } = statusStyle(project.status);
-  const isProjectActive = isActiveProject(project);
+  const isProjectActive = project.isActive ?? false;
 
   return (
     <Link
@@ -158,7 +152,7 @@ export default function ProjectsList({
 
   // Applies all filters and search term to determine if a project should be rendered
   const applyFilters = (project) => {
-    if(filters.active && !isActiveProject(project)) return false;
+    if(filters.active && !project.isActive) return false;
     if(filters.complete && !isCompleteStatus(project.status)) return false;
     if(filters.WIP && !isWIPStatus(project.status)) return false;
     if(statusFilter !== "all" && getStatusMeta(project.status).key !== statusFilter) return false;
@@ -186,8 +180,8 @@ export default function ProjectsList({
   // Generate filtered and sorted projects based on active filters, status filter, mechanic filter, and search term
   const filteredProjects = useMemo(() => {
     return projects.filter(applyFilters).sort((projectA, projectB) => {
-      const activityA = isActiveProject(projectA) ? 1 : 0;
-      const activityB = isActiveProject(projectB) ? 1 : 0;
+      const activityA = projectA.isActive ? 1 : 0;
+      const activityB = projectB.isActive ? 1 : 0;
       if(activityA !== activityB) return activityB - activityA; // Active projects first
       return updatedMillisForProject(projectB) - updatedMillisForProject(projectA); // Then by most recently updated
     });

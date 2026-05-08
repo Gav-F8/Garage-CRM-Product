@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
-import { fetchCustomers, fetchStorage, fetchMechanics } from "/src/lib/firestore-helpers.js";
+import { fetchCustomers, fetchVehicles, fetchMechanics } from "/src/lib/firestore-helpers.js";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form initial state and validation logic
@@ -77,7 +77,7 @@ function CreateModal({
 
         const [customerList, vehicleList, mechanicList] = await Promise.all([
           fetchCustomers(businessId),
-          fetchStorage(businessId),
+          fetchVehicles(businessId),
           fetchMechanics(businessId),
         ]);
 

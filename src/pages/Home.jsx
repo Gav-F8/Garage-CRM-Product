@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { auth, db } from "/src/firebase.js";
 import { getDocs, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { fetchCustomers, fetchVehicles, fetchProjects } from "../lib/firestore-helpers";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { NavigationBar } from "../components/NavigationBar";
@@ -38,28 +39,24 @@ export default function HomePage() {
         if (!businessId) return;
 
         // Fetch customers count
-        const customersSnap = await getDocs(
-          collection(db, "businesses", businessId, "Customers")
-        );
+        const customersSnap = await fetchCustomers(businessId);
 
         // Fetch vehicles count
-        const vehiclesSnap = await getDocs(
-          collection(db, "businesses", businessId, "storage")
-        );
+        const vehiclesSnap = await fetchVehicles(businessId);
 
+        // Fetch projects count
+        const projectsSnap = await fetchProjects(businessId);
         const completeAliases = STATUS_OPTIONS.find(s => s.key === "complete")?.aliases ?? [];
 
-        const projectsSnap = await getDocs(
-          collection(db, "businesses", businessId, "Projects")
-        );
-        const projectsInProgress = projectsSnap.docs.filter(
-          (d) => !completeAliases.includes(d.data().status)
+        // get number of projects that are not complete.
+        const projectsInProgress = projectsSnap.filter(
+          (project) => !completeAliases.includes(project.status)
         ).length;
 
         setStats({
-          totalCustomers: customersSnap.size,
+          totalCustomers: customersSnap.length,
           projectsInProgress,
-          totalVehicles: vehiclesSnap.size,
+          totalVehicles: vehiclesSnap.length,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
