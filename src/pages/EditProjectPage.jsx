@@ -33,8 +33,8 @@ export default function EditProjectPage() {
     status: "",
     customerId: "",
     customerName: "",
-    carId: "",
-    carLabel: "",
+    vehicleId: "",
+    vehicleLabel: "",
     description: "",
     assignedMechanicIds: [],
   });
@@ -108,8 +108,8 @@ export default function EditProjectPage() {
           status: safeStatus,
           customerId: projectSnap.customerId || "",
           customerName: projectSnap.customerName || "",
-          carId: projectSnap.carId || "",
-          carLabel: projectSnap.carLabel || "",
+          vehicleId: projectSnap.vehicleId || "",
+          vehicleLabel: projectSnap.vehicleLabel || "",
           description: projectSnap.description || "",
           assignedMechanicIds: Array.isArray(projectSnap.assignedMechanicIds) 
           ? projectSnap.assignedMechanicIds 
@@ -302,15 +302,15 @@ export default function EditProjectPage() {
                 Vehicle
               </label>
               <select
-                name="carId"
-                value={form.carId}
+                name="vehicleId"
+                value={form.vehicleId}
                 onChange={(e) => {
-                  const carId = e.target.value;
-                  const selectedVehicle = vehicles.find(v => v.id === carId);
+                  const vehicleId = e.target.value;
+                  const selectedVehicle = vehicles.find(v => v.id === vehicleId);
                   setForm((prev) => ({
                     ...prev,
-                    carId: carId,
-                    carLabel: selectedVehicle ? 
+                    vehicleId: vehicleId,
+                    vehicleLabel: selectedVehicle ? 
                       [selectedVehicle.year, selectedVehicle.make, selectedVehicle.model]
                         .filter(Boolean)
                         .join(" ") 
@@ -328,7 +328,7 @@ export default function EditProjectPage() {
                 )}
                 {form.customerId && filteredVehicles.length > 0 && (
                   <option value="">
-                    {form.carLabel}
+                    {form.vehicleLabel}
                   </option>
                 )}
                 {filteredVehicles.map((vehicle) => (

@@ -6,7 +6,7 @@ import { fetchCustomers, fetchVehicles, fetchProjects } from "../lib/firestore-h
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { NavigationBar } from "../components/NavigationBar";
-import { CreateJobFlow } from "/src/components/CreateJobModal.jsx";
+import { CreateProjectFlow } from "/src/components/CreateProjectModal.jsx";
 import ProjectsList from "../components/ProjectsList";
 
 export default function HomePage() {
@@ -97,7 +97,7 @@ export default function HomePage() {
                   Create New Job
                 </div>
               </button>
-              <CreateJobFlow 
+              <CreateProjectFlow 
                 submitting={false}
                 renderButton={false}
                 showModal={showCreateModal}
@@ -145,7 +145,7 @@ export default function HomePage() {
 
                 {/* Total Customers */}
                 <Link
-                  to="/customer"
+                  to="/customers"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
@@ -165,7 +165,7 @@ export default function HomePage() {
 
                 {/* Total Vehicles */}
                 <Link
-                  to="/storage"
+                  to="/vehicles"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">

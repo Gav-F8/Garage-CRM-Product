@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { fetchCustomers, fetchVehicles, fetchMechanics } from "/src/lib/firestore-helpers.js";
+import { CreateButton } from "/src/components/ui/CreateButton";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form initial state and validation logic
@@ -16,7 +17,7 @@ const INITIAL_JOB_FORM = {
   assignedMechanicIds: [],
 };
 
-function validateJobForm(form) {
+function validateProjectForm(form) {
   const errors = {};
   if (!form.title.trim()) errors.title = "Please enter a job title";
   if (!form.customerId) errors.customerId = "Please select a customer";
@@ -28,24 +29,11 @@ function validateJobForm(form) {
   return errors;
 }
 
-function CreateButton({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
-    >
-      + New Job
-    </button>
-  );
-}
-
-export { CreateButton };
-
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form
 // ══════════════════════════════════════════════════════════════════════════════
 
-function CreateModal({
+export function CreateProjectModal({
   submitting,
   onClose,
   onCreate,
@@ -140,7 +128,7 @@ function CreateModal({
   };
 
   const handleSubmit = async () => {
-    const formErrors = validateJobForm(form);
+    const formErrors = validateProjectForm(form);
     if (Object.keys(formErrors).length) {
       setErrors(formErrors);
       return;
@@ -377,10 +365,8 @@ function CreateModal({
   );
 }
 
-export { CreateModal };
-
 // Combined button + modal component
-export function CreateJobFlow({ submitting, onCreate, renderButton = true, showModal: externalShowModal, setShowModal: externalSetShowModal }) {
+export function CreateProjectFlow({ submitting, onCreate, renderButton = true, showModal: externalShowModal, setShowModal: externalSetShowModal }) {
   const [internalShowModal, setInternalShowModal] = useState(false);
   
   // Use external state if provided, otherwise use internal state
@@ -389,9 +375,9 @@ export function CreateJobFlow({ submitting, onCreate, renderButton = true, showM
 
   return (
     <>
-      {renderButton && <CreateButton onClick={() => setShowModal(true)} />}
+      {renderButton && <CreateButton onClick={() => setShowModal(true)} buttonText="+ New Job"/>}
       {showModal && (
-        <CreateModal
+        <CreateProjectModal
           submitting={submitting}
           onClose={() => setShowModal(false)}
           onCreate={onCreate}

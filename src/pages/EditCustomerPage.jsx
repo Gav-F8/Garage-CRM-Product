@@ -90,7 +90,7 @@ export default function EditCustomerPage() {
     try {
       const success = await updateCustomerValue(businessId, customerId, formData)
       if (success) {
-        navigate(`/customer/${customerId}`);
+        navigate(`/customers/${customerId}`);
       }
       else {
         setError(err.message || "Failed to save customer.");
@@ -117,7 +117,7 @@ export default function EditCustomerPage() {
         customerId,
       );
       await deleteDoc(customerRef);
-      navigate("/Customer");
+      navigate("/customers");
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to delete customer.");
@@ -143,7 +143,7 @@ export default function EditCustomerPage() {
         <div className={notionClasses.dashboardContainer}>
           <p className="text-sm text-[#C53030]">{error}</p>
           <button
-            onClick={() => navigate(`/customer/${customerId}`)}
+            onClick={() => navigate(`/customers/${customerId}`)}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
             Back
@@ -237,7 +237,7 @@ export default function EditCustomerPage() {
 
               <button
                 type="button"
-                onClick={() => navigate(`/customer/${customerId}`)}
+                onClick={() => navigate(`/customers/${customerId}`)}
                 className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
               >
                 Cancel

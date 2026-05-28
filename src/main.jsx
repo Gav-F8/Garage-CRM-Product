@@ -3,6 +3,24 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
+// VitePWA auto-registers the service worker
+// No manual registration needed with registerType: 'autoUpdate'
+// Register service worker for PWA
+// if ('serviceWorker' in navigator) {
+//   window.addEventListener('load', () => {
+//     navigator.serviceWorker.register('/sw.js').then((registration) => {
+//       console.log('✅ Service Worker registered:', registration)
+      
+//       // Check for updates periodically
+//       setInterval(() => {
+//         registration.update()
+//       }, 60000) // Check every minute
+//     }).catch((error) => {
+//       console.log('❌ Service Worker registration failed:', error)
+//     })
+//   })
+// }
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
@@ -16,10 +34,10 @@ createRoot(document.getElementById('root')).render(
   // ├── customers
   // ├── employees
   // ├── projects
-  // └── storage
+  // └── vehicles
   //
   // ──────────────────────────────────────────────────────────────────────────────
-  // — employees/{auto-id}
+  // — Employees/{auto-id}
   // ──────────────────────────────────────────────────────────────────────────────
   // {
   //   name:        string          // required
@@ -34,7 +52,7 @@ createRoot(document.getElementById('root')).render(
   // }
   //
   // ──────────────────────────────────────────────────────────────────────────────
-  // — customers/{auto-id}
+  // — Customers/{auto-id}
   // ──────────────────────────────────────────────────────────────────────────────
   // {
   //   name:      string          // required
@@ -47,10 +65,10 @@ createRoot(document.getElementById('root')).render(
   // }
   //
   // ──────────────────────────────────────────────────────────────────────────────
-  // — storage/{auto-id}
+  // — Vehicles/{auto-id}
   // ──────────────────────────────────────────────────────────────────────────────
   // {
-  //   carLabel:    string          // e.g. "John's 2010 Honda Accord"
+  //   vehicleLabel:    string          // e.g. "John's 2010 Honda Accord"
   //   type:        string          // "car", "truck", "motorcycle", etc.
   //   customerId:  string | null   // ref to customers/{id}
   //   plate:       string          // required
@@ -76,7 +94,7 @@ createRoot(document.getElementById('root')).render(
   //   GET /vehicles/DecodeVin/{vin}?format=json
   //
   // ──────────────────────────────────────────────────────────────────────────────
-  // — projects/{auto-id}
+  // — Projects/{auto-id}
   // ──────────────────────────────────────────────────────────────────────────────
   //
   //  TimeLogs: [
@@ -98,8 +116,8 @@ createRoot(document.getElementById('root')).render(
   //
   //   assignedMechanicId:      string          // required
   //   assignedMechanicName:    string | null
-  //   carId:                   string | null
-  //   carLabel:                string | null
+  //   vehicleId:                   string | null
+  //   vehicleLabel:                string | null
   //   createdAt:               Timestamp       // serverTimestamp()
   //   createdByEmployeeId:     string          // required
   //   createdByEmployeeName:   string          // required

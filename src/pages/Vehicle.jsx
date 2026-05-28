@@ -1,34 +1,68 @@
-import { useState, useEffect, useRef } from "react";
-import { auth, db } from "/src/firebase.js";
+// StoragePage
+// ├── Header (title + "Create Storage Item" button)
+// ├── Search bar (visible when list has items)
+// ├── Storage list  ← reads from Firestore
+// └── CreateVehicleModal   ← writes to Firestore, updates list on success
+// ══════════════════════════════════════════════════════════════════════════════
+// — storage/{auto-id}
+// ══════════════════════════════════════════════════════════════════════════════
+// {
+//   vehicleLabel:    string          // e.g. "John's 2010 Honda Accord"
+//   type:        string          // "car", "truck", "motorcycle", etc.
+//   customerId:  string | null   // ref to customers/{id}
+//   plate:       string          // required
+//   make:        string          // from NHTSA
+//   model:       string          // from NHTSA
+//   color:       string | null
+//   vin:         string | null   // 17-char VIN
+//   mileage:     INT64 | null   // odometer in km
+//   notes:       string | null
+//   year:        INT64
+//   createdAt:   Timestamp
+//   createdByEmployeeId: string
+//   createdByEmployeeName: string
+//   updatedAt:   Timestamp
+// }
+//
+// NHTSA vPIC API  — free, no key required
+// Docs: https://vpic.nhtsa.dot.gov/api/
+// 
+// Endpoints used:
+//   GET /vehicles/GetAllMakes?format=json
+//   GET /vehicles/GetModelsForMake/{make}?format=json
+//   GET /vehicles/DecodeVin/{vin}?format=json
+//
+// ══════════════════════════════════════════════════════════════════════════════
+
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { auth } from "/src/firebase.js";
 import {
-  fetchCustomers,
-  fetchTotalHoursCustomer,
-  fetchEmployeeDetail,
-  extractName,
-  createCustomer,
+  fetchTotalHoursVehicle,
+  fetchVehicles,
 } from "/src/lib/firestore-helpers.js";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-} from "firebase/firestore";
+import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
-import { CreateCustomerModal } from "@/components/CreateCustomerModal";
-import { CreateButton } from "@/components/ui/CreateButton";
+import { CreateVehicleModal } from "/src/components/CreateVehicleModal"
+import { CreateButton } from "/src/components/ui/CreateButton";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Main Page
 // ══════════════════════════════════════════════════════════════════════════════
-export default function CreateCustomerPage() {
+export default function VehiclePage() {
   const navigate = useNavigate();
-  const [customers, setCustomers] = useState([]);
+  const businessId = localStorage.getItem("ccgBusinessId");
+  const { customers: customersList } = useCustomersForCurrentUser(businessId);
+  const customers = customersList.reduce((acc, c) => {
+    acc[c.id] = c.name;
+    return acc;
+  }, {});
+
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
-  const [businessId, setBusinessId] = useState(null);
-  const searchInputRef = useRef(null);
+  const [showModal, setShowModal] = useState(false);
   const [totalHoursMap, setTotalHoursMap] = useState({});
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,23 +76,28 @@ export default function CreateCustomerPage() {
           navigate("/Login");
           return;
         }
-        setBusinessId(bizId);
-        fetchCustomers(bizId)
-          .then(async (customerData) => {
-            setCustomers(customerData);
+        
+        try {
+          const vehicleData = await fetchVehicles(bizId);
+          setItems(vehicleData);
 
             const hoursMap = {};
 
             await Promise.all(
-              customerData.map(async (customer) => {
-                const hours = await fetchTotalHoursCustomer(bizId, customer.id);
-                hoursMap[customer.id] = hours;
+              vehicleData.map(async (item) => {
+                const hours = await fetchTotalHoursVehicle(
+                  bizId,
+                  item.id,
+                  item.customerId,
+                );
+                hoursMap[item.id] = hours;
               }),
             );
 
             setTotalHoursMap(hoursMap);
-          })
-          .finally(() => setLoading(false));
+          } finally {
+            setLoading(false);
+          }
       } else {
         setLoading(false);
       }
@@ -66,26 +105,14 @@ export default function CreateCustomerPage() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // Clear search input after modal closes to prevent autofill
-  useEffect(() => {
-    if (!showModal && searchInputRef.current) {
-      searchInputRef.current.value = "";
-    }
-  }, [showModal]);
-
-  const handleCreated = (newCustomer) => {
-    setCustomers((prev) => [newCustomer, ...prev]);
-    setSearch(""); // Reset search when new customer is added
-    setShowModal(false); // Close modal
-    setTotalHoursMap((p) => ({ ...p, [newCustomer.id]: "0h 0m" }));
-  };
-
-  const filtered = customers.filter(
-    (c) =>
-      (c.name && c.name.toLowerCase().includes(search.toLowerCase())) ||
-      (c.email && c.email.toLowerCase().includes(search.toLowerCase())) ||
-      (c.phone && c.phone.includes(search)),
-  );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return items.filter((i) =>
+      `${i.make || ""} ${i.model || ""} ${i.plate || ""} ${i.type || ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [items, search]);
 
   // Pagination logic
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -93,40 +120,39 @@ export default function CreateCustomerPage() {
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = filtered.slice(startIndex, endIndex);
 
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   return (
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className={notionClasses.header.title}>Customers</h1>
+            <h1 className={notionClasses.header.title}>Vehicles</h1>
             <p className={notionClasses.header.subtitle}>
-              Manage all your customers and their project history in one place.
+              Track all your vehicles and their maintenance history in one
+              place.
             </p>
           </div>
 
-          {customers.length > 0 &&
-            loading === false &&
-            localStorage.getItem("ccgUserRole") === "owner" && (
-              <CreateButton
-                onClick={() => setShowModal(true)}
-                buttonText="+ New Customer"
-              />
-            )}
+          {items.length > 0 && loading === false && (
+            <CreateButton 
+              onClick={() => setShowModal(true)}
+              buttontext="+ New Vehicle"
+            />
+          )}
         </div>
 
         {/* Search */}
-        {customers.length > 0 && (
+        {items.length > 0 && (
           <div className="mb-6">
             <input
-              ref={searchInputRef}
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              placeholder="Search customers..."
-              autoComplete="off"
-              spellCheck="false"
-              name="search-customers"
-              type="text"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search vehicles..."
               className={notionClasses.input}
             />
           </div>
@@ -134,29 +160,27 @@ export default function CreateCustomerPage() {
 
         {/* Table */}
         {loading ? (
-          <p className="text-sm text-[#787774]">Loading customers...</p>
-        ) : customers.length === 0 ? (
+          <p className="text-sm text-[#787774]">Loading vehicles...</p>
+        ) : items.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
-            <p className="text-sm text-[#787774] mb-4">No customers yet.</p>
-            {localStorage.getItem("ccgUserRole") === "owner" && (
-              <div className="flex justify-center">
-                <CreateButton
-                  onClick={() => setShowModal(true)}
-                  buttonttext="+ Create Customer"
-                />
-              </div>
-            )}
+            <p className="text-sm text-[#787774] mb-4">No vehicles yet.</p>
+            <div className="flex justify-center">
+              <CreateButton 
+                onClick={() => setShowModal(true)}
+                buttonText="+ New Vehicle"
+              />
+            </div>
           </div>
         ) : (
           <>
             {/* Items Per Page and Total Count */}
-            <div className="flex items-center justify-between px-4 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
+            <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-t-xl border border-[#E0E0E0]">
               <div className="text-sm text-[#787774]">
                 Total:{" "}
                 <span className="font-semibold text-[#37352F]">
                   {filtered.length}
                 </span>{" "}
-                customers
+                vehicles
               </div>
               <div className="flex items-center gap-3">
                 <label className="text-sm text-[#787774]">Show:</label>
@@ -177,32 +201,30 @@ export default function CreateCustomerPage() {
               <table className="min-w-full">
                 <thead>
                   <tr>
-                    <th className={notionClasses.table.header}>Name</th>
-                    <th className={notionClasses.table.header}>Email</th>
-                    <th className={notionClasses.table.header}>Phone</th>
-                    <th className={notionClasses.table.header}>Address</th>
+                    <th className={notionClasses.table.header}>Vehicle</th>
+                    <th className={notionClasses.table.header}>Plate</th>
+                    <th className={notionClasses.table.header}>Customer</th>
                     <th className={notionClasses.table.header}>Total Hours</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedData.map((c) => (
+                  {paginatedData.map((item) => (
                     <tr
-                      key={c.id}
+                      key={item.id}
                       className="border-t border-[#E0E0E0] hover:bg-blue-50 hover:border-l-4 hover:border-l-blue-400 transition-all duration-150 cursor-pointer"
-                      onClick={() => navigate(`/customers/${c.id}`)}
+                      onClick={() => {
+                        navigate(`/vehicles/${item.id}`);
+                      }}
                     >
-                      <td className={notionClasses.table.cell}>{c.name}</td>
                       <td className={notionClasses.table.cell}>
-                        {c.email || "-"}
+                        {item.year} {item.make} {item.model}
+                      </td>
+                      <td className={notionClasses.table.cell}>{item.plate}</td>
+                      <td className={notionClasses.table.cell}>
+                        {customers[item.customerId] || "-"}
                       </td>
                       <td className={notionClasses.table.cell}>
-                        {c.phone || "-"}
-                      </td>
-                      <td className={notionClasses.table.cell}>
-                        {c.address || "-"}
-                      </td>
-                      <td className={notionClasses.table.cell}>
-                        {totalHoursMap[c.id] || "0h 0m"}
+                        {totalHoursMap[item.id] || "0h 0m"}
                       </td>
                     </tr>
                   ))}
@@ -212,7 +234,7 @@ export default function CreateCustomerPage() {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-6 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
+              <div className="flex items-center justify-between px-4 py-4 bg-gray-50 rounded-b-xl border border-t-0 border-[#E0E0E0]">
                 <div className="text-sm text-[#787774]">
                   Page{" "}
                   <span className="font-semibold text-[#37352F]">
@@ -249,10 +271,14 @@ export default function CreateCustomerPage() {
         )}
 
         {showModal && (
-          <CreateCustomerModal
+          <CreateVehicleModal
             businessId={businessId}
+            customers={customers}
             onClose={() => setShowModal(false)}
-            onCreated={handleCreated}
+            onCreated={(newItem) => {
+              setItems((p) => [newItem, ...p]);
+              setTotalHoursMap((p) => ({ ...p, [newItem.id]: "0h 0m" }));
+            }}
           />
         )}
       </div>

@@ -5,8 +5,8 @@
 // {
 //   assignedMechanicId:      string          // required
 //   assignedMechanicName:    string | null
-//   carId:                   string | null
-//   carLabel:                string | null
+//   vehicleId:                   string | null
+//   vehicleLabel:                string | null
 //   createdAt:               Timestamp       // serverTimestamp()
 //   createdByEmployeeId:     string          // required
 //   createdByEmployeeName:   string          // required
@@ -44,7 +44,7 @@ import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { STATUS_OPTIONS } from "../lib/utils.js";
 import { notionClasses } from "../lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
-import { CreateJobFlow } from "../components/CreateJobModal.jsx";
+import { CreateProjectFlow } from "../components/CreateProjectModal.jsx";
 import ProjectsList from "../components/ProjectsList";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -133,7 +133,7 @@ export default function ProjectPage() {
         (customer) => customer.id === payload.customerId,
       );
       const selectedVehicle = vehicles.find(
-        (vehicle) => vehicle.id === payload.carId,
+        (vehicle) => vehicle.id === payload.vehicleId,
       );
       const selectedMechanics = mechanics.filter((mechanic) =>
         payload.assignedMechanicIds.includes(mechanic.id),
@@ -143,7 +143,7 @@ export default function ProjectPage() {
         .map((mechanic) => mechanic.name)
         .filter(Boolean);
 
-      const carLabel = [
+      const vehicleLabel = [
         selectedVehicle?.year,
         selectedVehicle?.make,
         selectedVehicle?.model,
@@ -156,8 +156,8 @@ export default function ProjectPage() {
         customerId: payload.customerId,
         customerName: selectedCustomer?.name || null,
         description: payload.description || null,
-        carId: payload.carId,
-        carLabel: carLabel || null,
+        vehicleId: payload.vehicleId,
+        vehicleLabel: vehicleLabel || null,
         status: payload.status,
 
         // keep legacy field for compatibility where needed
@@ -206,7 +206,7 @@ export default function ProjectPage() {
 
           {/* Create Job Button */}
           {!creationDataLoading && (
-            <CreateJobFlow submitting={submitting} onCreate={handleJobSubmit} />
+            <CreateProjectFlow submitting={submitting} onCreate={handleJobSubmit} />
           )}
         </div>
 
@@ -241,7 +241,7 @@ export default function ProjectPage() {
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No Jobs found.</p>
             {!creationDataLoading && (
-              <CreateJobFlow submitting={submitting} onCreate={handleJobSubmit} />
+              <CreateProjectFlow submitting={submitting} onCreate={handleJobSubmit} />
             )}
           </div>
         )}

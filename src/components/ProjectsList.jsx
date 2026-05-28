@@ -3,7 +3,7 @@
 // ├── Toggle Filter buttons Active (boolean), Complete (status), WIP (status)
 // ├── Dropdown Menu => Select Status  ← reads from (status) projects, compares against STATUS_OPTIONS to get unique status keys for filtering (Excludes WIP, Complete statuses)
 // ├── Dropdown Menu => Select Mechanic  ← reads from (assignedMechanicName) projects to get unique names for filtering
-// ├── Search Projects Bar (searches title, customerName, carLabel)
+// ├── Search Projects Bar (searches title, customerName, vehicleLabel)
 // └── Automatically sorts projects by Active (boolean) and then by most recently updated (updatedAt or createdAt) using toMillis function to normalize timestamps for comparison
 // ══════════════════════════════════════════════════════════════════════════════
 // FIRESTORE DATA STRUCTURE — projects/{auto-id}
@@ -11,8 +11,8 @@
 // {
 //   assignedMechanicId:      string          // required
 //   assignedMechanicName:     string | null
-//   carId:     string | null
-//   carLabel:   string | null
+//   vehicleId:     string | null
+//   vehicleLabel:   string | null
 //   createdAt: Timestamp       // serverTimestamp()
 //   createdByEmployeeId: string          // required
 //   createdByEmployeeName: string          // required
@@ -81,7 +81,7 @@ function ProjectRow({ project }) {
     >
       <div className="flex items-center w-full px-6 py-3.5 transition-all duration-150 hover:bg-[#F7F7F5] hover:scale-[1.01] active:scale-[0.995]">
         <span className="font-mono font-semibold text-sm w-32 shrink-0 text-[#37352F]">
-          {project.carLabel || "-"}
+          {project.vehicleLabel || "-"}
         </span>
 
         <span className="flex-1 px-5 text-sm font-medium text-[#2F6FED]">
@@ -168,7 +168,7 @@ export default function ProjectsList({
         !(
           project.title?.toLowerCase().includes(term) ||
           project.customerName?.toLowerCase().includes(term) ||
-          project.carLabel?.toLowerCase().includes(term)
+          project.vehicleLabel?.toLowerCase().includes(term)
         )
       ) {
         return false;

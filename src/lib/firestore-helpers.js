@@ -111,7 +111,7 @@ export async function fetchBusinessId(userUid) {
     async () => {
       const snap = await getDocs(
         query(
-          collection(db, "businesses", businessId, "storage"),
+          collection(db, "businesses", businessId, "Vehicle"),
           where("customerId", "==", customerId),
           orderBy("createdAt", "desc")
         )
@@ -175,7 +175,7 @@ export async function createCustomer(businessId, values) {
 }
 
 export async function createVehicle(businessId, values) {
-  return await createDocument(businessId, "storage", values);
+  return await createDocument(businessId, "Vehicles", values);
 }
 
 export async function createProject(businessId, values) {
@@ -219,7 +219,7 @@ export async function fetchCustomerDetail(businessId, customerId) {
 }
 
 export async function fetchVehicleDetail(businessId, vehicleId) {
-    return await fetchDocumentDetail(businessId, "storage", vehicleId);
+    return await fetchDocumentDetail(businessId, "Vehicles", vehicleId);
 }
 
 export async function fetchProjectDetail(businessId, projectId) {
@@ -279,7 +279,7 @@ export async function fetchCustomers(businessId) {
 }
 
 export async function fetchVehicles(businessId) {
-  return await fetchMultipleDocuments(businessId, "storage");
+  return await fetchMultipleDocuments(businessId, "Vehicles");
 }
 
 export async function fetchProjects(businessId) {
@@ -309,7 +309,7 @@ export async function fetchRelatedProjectsByCustomer(businessId, customerId) {
 }
 
 export async function fetchRelatedProjectsByVehicle(businessId, vehicleId) {
-    return fetchProjectsByFilter(businessId, "carId", vehicleId);
+    return fetchProjectsByFilter(businessId, "vehicleId", vehicleId);
 }
 
 // Generic function to check if a customer or vehicle has an active job
@@ -327,12 +327,12 @@ async function checkHasJobActive(businessId, filterField, filterValue) {
       return snap.size > 0;
     },
     [],
-    "Error fetching for jobs:"
+    "Error fetching for projects:"
   );
 }
 
-export async function checkHasActiveJobVehicle(businessId, storageId) {
-    return checkHasJobActive(businessId, "carId", storageId);
+export async function checkHasActiveJobVehicle(businessId, vehicleId) {
+    return checkHasJobActive(businessId, "vehicleId", vehicleId);
 }
 
 export async function checkHasActiveJobCustomer(businessId, customerId) {
@@ -383,8 +383,8 @@ export async function fetchTotalTimeLogsCustomer(businessId, customerId) {
   return fetchProjectTimeLogs(businessId, "customerId", customerId);
 }
 
-export async function fetchTotalTimeLogsVehicle(businessId, storageId) {
-  return fetchProjectTimeLogs(businessId, "carId", storageId);
+export async function fetchTotalTimeLogsVehicle(businessId, vehicleId) {
+  return fetchProjectTimeLogs(businessId, "vehicleId", vehicleId);
 }
 
 // String format versions (for backward compatibility)
@@ -393,8 +393,8 @@ export async function fetchTotalHoursCustomer(businessId, customerId) {
   return `${hours}h ${minutes}m`;
 }
 
-export async function fetchTotalHoursVehicle(businessId, storageId) {
-  const { hours, minutes } = await fetchProjectTimeLogs(businessId, "carId", storageId);
+export async function fetchTotalHoursVehicle(businessId, vehicleId) {
+  const { hours, minutes } = await fetchProjectTimeLogs(businessId, "vehicleId", vehicleId);
   return `${hours}h ${minutes}m`;
 }
 
@@ -428,7 +428,7 @@ export async function updateCustomerValue(businessId, customerId, update) {
 }
 
 export async function updateVehicleValue(businessId, vehicleId, update) {
-  return await updateValue(businessId,"storage", vehicleId, update);
+  return await updateValue(businessId,"Vehicle", vehicleId, update);
 }
 
 export async function updateProjectValue(businessId, projectId, update) {

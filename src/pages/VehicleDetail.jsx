@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auth, db } from "/src/firebase.js";
-import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
+import { auth } from "/src/firebase.js";
 import {
   extractName,
   fetchCustomerDetail,
@@ -13,11 +12,11 @@ import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
 
-export default function StorageDetailPage() {
+export default function VehicleDetailPage() {
   // Route and page-level state.
-  const { storageId } = useParams();
+  const { vehicleId } = useParams();
   const navigate = useNavigate();
-  const [storage, setStorage] = useState(null);
+  const [vehicle, setVehicle] = useState(null);
   const [customerName, setCustomerName] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +26,7 @@ export default function StorageDetailPage() {
     minutes: 0,
   });
 
-  // Allow access to storage details for mechanics and other roles.
+  // Allow access to vehicle details for mechanics and other roles.
 
   // Loads vehicle, linked customer, related projects, and total hours.
   useEffect(() => {
@@ -44,34 +43,34 @@ export default function StorageDetailPage() {
           return;
         }
 
-        // Fetch storage detail
-        const storageData = await fetchVehicleDetail(bizId, storageId);
-        setStorage(storageData);
+        // Fetch vehicle detail
+        const vehicleData = await fetchVehicleDetail(bizId, vehicleId);
+        setVehicle(vehicleData);
 
-        if (storageData) {
+        if (vehicleData) {
           // Fetch customer name
-          if (storageData.customerId) {
-            const name = extractName(await fetchCustomerDetail(bizId, storageData.customerId));
+          if (vehicleData.customerId) {
+            const name = extractName(await fetchCustomerDetail(bizId, vehicleData.customerId));
             setCustomerName(name);
           }
 
           // Fetch related projects
-          const projects = await fetchRelatedProjectsByVehicle(bizId, storageId);
+          const projects = await fetchRelatedProjectsByVehicle(bizId, vehicleId);
           setRelatedProjects(projects);
 
           // Fetch total time logs
-          const logs = await fetchTotalTimeLogsVehicle(bizId, storageId);
+          const logs = await fetchTotalTimeLogsVehicle(bizId, vehicleId);
           setTimeLogs(logs);
         }
       } catch (error) {
-        console.error("Error loading storage detail:", error);
+        console.error("Error loading vehicle detail:", error);
       } finally {
         setLoading(false);
       }
     });
 
     return () => unsubscribe();
-  }, [storageId]);
+  }, [vehicleId]);
 
   // Loading and empty states.
   if (loading) {
@@ -79,23 +78,23 @@ export default function StorageDetailPage() {
       <div className={notionClasses.pageContainer}>
         <NavigationBar />
         <div className={notionClasses.dashboardContainer}>
-          <p className="text-sm text-[#787774]">Loading storage details...</p>
+          <p className="text-sm text-[#787774]">Loading vehicle details...</p>
         </div>
       </div>
     );
   }
 
-  if (!storage) {
+  if (!vehicle) {
     return (
       <div className={notionClasses.pageContainer}>
         <NavigationBar />
         <div className={notionClasses.dashboardContainer}>
-          <p className="text-sm text-[#C53030]">Storage not found</p>
+          <p className="text-sm text-[#C53030]">Vehicle not found</p>
           <button
-            onClick={() => navigate("/Storage")}
+            onClick={() => navigate("/vehicles")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
-            Back to Storage
+            Back to Vehicles
           </button>
         </div>
       </div>
@@ -110,22 +109,22 @@ export default function StorageDetailPage() {
         <div className="flex items-center justify-between mb-6 gap-4">
           <div>
             <h1 className={notionClasses.header.title}>
-              {storage.carLabel ||
-                `${storage.year} ${storage.make} ${storage.model}`}
+              {vehicle.vehicleLabel ||
+                `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
             </h1>
-            <p className={notionClasses.header.subtitle}>{storage.plate}</p>
+            <p className={notionClasses.header.subtitle}>{vehicle.plate}</p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => navigate("/Storage")}
+              onClick={() => navigate("/vehicles")}
               className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
             >
               ← Back to Vehicles
             </button>
 
             <button
-              onClick={() => navigate(`/storage/${storageId}/edit`)}
+              onClick={() => navigate(`/vehicles/${vehicleId}/edit`)}
               className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
             >
               Edit
@@ -145,42 +144,42 @@ export default function StorageDetailPage() {
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Make
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.make}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.make}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Model
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.model}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.model}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Year
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.year}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.year}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Type
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.type}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.type}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Plate
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.plate}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.plate}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Color
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.color || "-"}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.color || "-"}</p>
               </div>
             </div>
           </div>
@@ -196,7 +195,7 @@ export default function StorageDetailPage() {
                   Mileage (km)
                 </label>
                 <p className="text-sm text-[#37352F]">
-                  {storage.mileage || "-"}
+                  {vehicle.mileage || "-"}
                 </p>
               </div>
 
@@ -205,7 +204,7 @@ export default function StorageDetailPage() {
                   VIN
                 </label>
                 <p className="text-sm text-[#37352F] break-all">
-                  {storage.vin || "-"}
+                  {vehicle.vin || "-"}
                 </p>
               </div>
 
@@ -221,7 +220,7 @@ export default function StorageDetailPage() {
                   Created By
                 </label>
                 <p className="text-sm text-[#37352F]">
-                  {storage.createdByEmployeeAcc || "-"}
+                  {vehicle.createdByEmployeeAcc || "-"}
                 </p>
               </div>
 
@@ -229,7 +228,7 @@ export default function StorageDetailPage() {
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Notes
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.notes || "-"}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.notes || "-"}</p>
               </div>
 
               <div>

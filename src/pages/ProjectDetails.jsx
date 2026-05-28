@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { auth, db } from "../firebase";
+import { auth, db } from "../firebase.js";
 import {
   addDoc,
   collection,
@@ -20,6 +20,8 @@ import {
   formatTotalMinutes,
   formatTimer,
   updateProjectTimelogValue,
+  createProjectTimelog,
+  createProjectNotes,
 } from "../lib/firestore-helpers.js";
 import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
 import { statusStyle } from "/src/lib/utils.js";
@@ -263,13 +265,13 @@ export default function ProjectDetailsPage() {
 
         const projectData = { id: projectSnap.id, ...projectSnap.data() };
         setProject(projectData);
-        if (projectData.carId) {
+        if (projectData.vehicleId) {
           const carRef = doc(
             db,
             "businesses",
             businessId,
-            "storage",
-            projectData.carId,
+            "Vehicles",
+            projectData.vehicleId,
           );
 
           const carSnap = await getDoc(carRef);
@@ -527,13 +529,13 @@ export default function ProjectDetailsPage() {
                   {project.title || "Untitled Project"}
                 </h1>
                 <p className={notionClasses.header.subtitle}>
-                  {project.customerName || "-"} • {project.carLabel || "-"}
+                  {project.customerName || "-"} • {project.vehicleLabel || "-"}
                 </p>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 <button
-                  onClick={() => navigate("/jobs")}
+                  onClick={() => navigate("/projects")}
                   className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
                 >
                   ← Back to Jobs
@@ -560,7 +562,7 @@ export default function ProjectDetailsPage() {
                     <span className="text-[#787774]">
                       {project.customerId ? (
                         <Link
-                          to={`/Customer/${project.customerId}`}
+                          to={`/customers/${project.customerId}`}
                           className="text-[#2F6FED] hover:underline font-medium"
                         >
                           {project.customerName || "-"}
@@ -574,15 +576,15 @@ export default function ProjectDetailsPage() {
                   <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">Car</span>
                     <span className="text-[#787774]">
-                      {project.carId ? (
+                      {project.vehicleId ? (
                         <Link
-                          to={`/storage/${project.carId}`}
+                          to={`/vehicles/${project.vehicleId}`}
                           className="text-[#2F6FED] hover:underline font-medium"
                         >
-                          {project.carLabel || "-"}
+                          {project.vehicleLabel || "-"}
                         </Link>
                       ) : (
-                        project.carLabel || "-"
+                        project.vehicleLabel || "-"
                       )}
                     </span>
                   </div>

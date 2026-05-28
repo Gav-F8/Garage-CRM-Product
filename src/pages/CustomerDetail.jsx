@@ -78,7 +78,7 @@ export default function CustomerDetailPage() {
         <div className={notionClasses.dashboardContainer}>
           <p className="text-sm text-[#C53030]">Customer not found</p>
           <button
-            onClick={() => navigate("/Customer")}
+            onClick={() => navigate("/customers")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
             Back to Customers
@@ -101,7 +101,7 @@ export default function CustomerDetailPage() {
 
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => navigate("/Customer")}
+              onClick={() => navigate("/customers")}
               className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
             >
               ← Back to Customers
@@ -109,7 +109,7 @@ export default function CustomerDetailPage() {
 
             {localStorage.getItem("ccgUserRole") === "owner" && (
               <button
-                onClick={() => navigate(`/customer/${customerId}/edit`)}
+                onClick={() => navigate(`/customers/${customerId}/edit`)}
                 className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
               >
                 Edit
