@@ -10,19 +10,19 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { useAuth } from "../context/AuthContext";
 
 export function NavigationBar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { role: userRole } = useAuth();
   const [user, setUser] = useState(null);
   const [displayName, setDisplayName] = useState("");
-  const [userRole, setUserRole] = useState("");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        setUserRole(localStorage.getItem("ccgUserRole") || "");
         try {
           // Check owner first
           const bizQuery = query(
@@ -59,15 +59,15 @@ export function NavigationBar() {
       } else {
         setUser(null);
         setDisplayName("");
-        setUserRole("");
       }
     });
     return () => unsubscribe();
   }, []);
 
   const handleSignOut = async () => {
+    // Role/businessId now live on the auth token (custom claims) + AuthContext;
+    // we only clear the businessId fallback cache here.
     localStorage.removeItem("ccgBusinessId");
-    localStorage.removeItem("ccgUserRole");
     await signOut(auth);
     navigate("/Login");
   };

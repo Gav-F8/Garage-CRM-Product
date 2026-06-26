@@ -2,12 +2,14 @@ import { db } from "/src/firebase.js";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from "firebase/firestore";
 
@@ -111,7 +113,7 @@ export async function fetchBusinessId(userUid) {
     async () => {
       const snap = await getDocs(
         query(
-          collection(db, "businesses", businessId, "Vehicle"),
+          collection(db, "businesses", businessId, "Vehicles"),
           where("customerId", "==", customerId),
           orderBy("createdAt", "desc")
         )
@@ -428,7 +430,7 @@ export async function updateCustomerValue(businessId, customerId, update) {
 }
 
 export async function updateVehicleValue(businessId, vehicleId, update) {
-  return await updateValue(businessId,"Vehicle", vehicleId, update);
+  return await updateValue(businessId,"Vehicles", vehicleId, update);
 }
 
 export async function updateProjectValue(businessId, projectId, update) {

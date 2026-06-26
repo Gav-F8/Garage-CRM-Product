@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auth } from "/src/firebase.js";
 import {
   fetchCustomerDetail,
   fetchTotalTimeLogsCustomer,
@@ -9,11 +8,13 @@ import {
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 
 export default function CustomerDetailPage() {
   // Route and page-level state.
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const { role, businessId, user, loading: authLoading } = useAuth();
   const [customer, setCustomer] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,41 +24,46 @@ export default function CustomerDetailPage() {
     minutes: 0,
   });
 
-  // Loads customer data and related project statistics after auth resolves.
+  // Loads customer data and related project statistics once auth/claims resolve.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (!businessId) {
+      navigate("/Login");
+      setLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    (async () => {
       try {
-        const bizId = localStorage.getItem("ccgBusinessId");
-        if (!bizId) {
-          navigate("/Login");
-          setLoading(false);
-          return;
-        }
-
-        const customerData = await fetchCustomerDetail(bizId, customerId);
+        const customerData = await fetchCustomerDetail(businessId, customerId);
+        if (cancelled) return;
         setCustomer(customerData);
 
         if (customerData) {
-          const projects = await fetchRelatedProjectsByCustomer(bizId, customerId);
+          const projects = await fetchRelatedProjectsByCustomer(businessId, customerId);
+          if (cancelled) return;
           setRelatedProjects(projects);
 
-          const logs = await fetchTotalTimeLogsCustomer(bizId, customerId);
+          const logs = await fetchTotalTimeLogsCustomer(businessId, customerId);
+          if (cancelled) return;
           setTimeLogs(logs);
         }
       } catch (error) {
         console.error("Error loading customer detail:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    });
+    })();
 
-    return () => unsubscribe();
-  }, [customerId, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId, customerId, navigate]);
 
   // Loading and empty states.
   if (loading) {
@@ -107,7 +113,7 @@ export default function CustomerDetailPage() {
               ← Back to Customers
             </button>
 
-            {localStorage.getItem("ccgUserRole") === "owner" && (
+            {role === "owner" && (
               <button
                 onClick={() => navigate(`/customers/${customerId}/edit`)}
                 className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"

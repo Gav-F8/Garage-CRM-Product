@@ -9,6 +9,8 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { updateEmployeeDetail } from "../lib/firestore-helpers";
+import { useAuth } from "../context/AuthContext";
 import { NavigationBar } from "../components/NavigationBar";
 import { notionClasses } from "@/lib/notion-theme";
 import {
@@ -524,10 +526,13 @@ export default function EmployeeManagement() {
   const [confirmAction, setConfirmAction] = useState(null); // { type, emp }
   const [authVerified, setAuthVerified] = useState(false);
 
-  const businessId = localStorage.getItem("ccgBusinessId");
-  const userRole = localStorage.getItem("ccgUserRole");
+  const { businessId, role: userRole, loading: authLoading } = useAuth();
 
   useEffect(() => {
+    // Wait for auth/claims to resolve before making routing decisions, so we
+    // never bounce an owner out before their role claim has loaded.
+    if (authLoading) return;
+
     if (userRole !== "owner") {
       navigate("/Home", { replace: true });
       return;
@@ -556,7 +561,7 @@ export default function EmployeeManagement() {
     });
 
     return () => unsubscribe();
-  }, [businessId, userRole, navigate]);
+  }, [authLoading, businessId, userRole, navigate]);
 
   const fetchEmployees = async () => {
     if (!businessId) return;
@@ -590,7 +595,7 @@ export default function EmployeeManagement() {
 
   const handleApprove = async (uid) => {
     setActionLoading(uid);
-    const success = await updateEmployeeValue(businessId, uid, {status: "active"});
+    const success = await updateEmployeeDetail(businessId, uid, {status: "active"});
     if (success) {
       setEmployees((prev) =>
         prev.map((e) => (e.id === uid ? { ...e, status: "active" } : e)),
@@ -604,7 +609,7 @@ export default function EmployeeManagement() {
 
   const handleDecline = async (uid) => {
     setActionLoading(uid);
-    const success = await updateEmployeeValue(businessId, uid, {status: "rejected"});
+    const success = await updateEmployeeDetail(businessId, uid, {status: "rejected"});
     if (success) {
       setEmployees((prev) =>
         prev.map((e) => (e.id === uid ? { ...e, status: "rejected" } : e)),
@@ -637,7 +642,7 @@ export default function EmployeeManagement() {
     }
     setSavingEdit(true);
     try {
-      const success = await updateEmployeeValue(businessId, uid, {status: newStatus, role: newRole});
+      const success = await updateEmployeeDetail(businessId, uid, {status: newStatus, role: newRole});
       if (success) {
         setEmployees((prev) =>
           prev.map((e) => (e.id === uid ? { ...e, status: newStatus, role: newRole } : e)),

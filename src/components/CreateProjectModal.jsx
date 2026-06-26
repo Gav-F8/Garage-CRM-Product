@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { fetchCustomers, fetchVehicles, fetchMechanics } from "/src/lib/firestore-helpers.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 import { CreateButton } from "/src/components/ui/CreateButton";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -39,7 +40,8 @@ export function CreateProjectModal({
   onCreate,
 }) {
   const navigate = useNavigate();
-  
+  const { businessId, loading: authLoading } = useAuth();
+
   // Form state
   const [form, setForm] = useState(INITIAL_JOB_FORM);
   const [errors, setErrors] = useState({});
@@ -52,36 +54,40 @@ export function CreateProjectModal({
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
 
-  // Fetch modal data on mount
+  // Fetch modal data on mount (once auth/claims resolve)
   useEffect(() => {
+    if (authLoading) return;
+    if (!businessId) {
+      setDataError("No business context found");
+      setLoadingData(false);
+      return;
+    }
+
+    let cancelled = false;
     async function loadModalData() {
       try {
-        const businessId = localStorage.getItem("ccgBusinessId");
-        if (!businessId) {
-          setDataError("No business context found");
-          setLoadingData(false);
-          return;
-        }
-
         const [customerList, vehicleList, mechanicList] = await Promise.all([
           fetchCustomers(businessId),
           fetchVehicles(businessId),
           fetchMechanics(businessId),
         ]);
-
+        if (cancelled) return;
         setCustomers(customerList);
         setVehicles(vehicleList);
         setMechanics(mechanicList);
       } catch (err) {
         console.error("Error loading modal data:", err);
-        setDataError("Failed to load form data");
+        if (!cancelled) setDataError("Failed to load form data");
       } finally {
-        setLoadingData(false);
+        if (!cancelled) setLoadingData(false);
       }
     }
 
     loadModalData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, businessId]);
   
   // Add mechanic to the assignedMechanicIds array in form state
   const addMechanic = (mechanicId) => {

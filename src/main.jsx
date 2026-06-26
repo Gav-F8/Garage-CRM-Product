@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
 
 // VitePWA auto-registers the service worker
 // No manual registration needed with registerType: 'autoUpdate'
@@ -23,7 +25,14 @@ import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    {/* ErrorBoundary is outermost so its fallback renders even if the auth
+        layer itself throws. AuthProvider then exposes user/role/businessId
+        (from custom claims) to the whole app via useAuth(). */}
+    <ErrorBoundary>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )
 

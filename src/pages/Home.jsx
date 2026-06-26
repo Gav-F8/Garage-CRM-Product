@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { auth, db } from "/src/firebase.js";
-import { getDocs, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "/src/firebase.js";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { fetchCustomers, fetchVehicles, fetchProjects } from "../lib/firestore-helpers";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
+import { useAuth } from "../context/AuthContext";
 import { NavigationBar } from "../components/NavigationBar";
 import { CreateProjectFlow } from "/src/components/CreateProjectModal.jsx";
 import ProjectsList from "../components/ProjectsList";
 
 export default function HomePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { businessId, user, loading: authLoading } = useAuth();
 
   const {
     projects,
@@ -19,7 +21,7 @@ export default function HomePage() {
     hasMore,
     loadingMore,
     loadMore,
-  } = useProjectsForCurrentUser();
+  } = useProjectsForCurrentUser({ businessId, enabled: Boolean(businessId) });
 
   const [stats, setStats] = useState({
     totalCustomers: 0,
@@ -29,14 +31,13 @@ export default function HomePage() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     const fetchStats = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        // Get business ID from localStorage
-        const businessId = localStorage.getItem("ccgBusinessId");
-        if (!businessId) return;
+        if (!user || !businessId) {
+          setStatsLoading(false);
+          return;
+        }
 
         // Fetch customers count
         const customersSnap = await fetchCustomers(businessId);
@@ -66,7 +67,7 @@ export default function HomePage() {
     };
 
     fetchStats();
-  }, []);
+  }, [authLoading, user, businessId]);
 
   return (
     <div className="min-h-screen bg-[#F7F7F5]">
@@ -104,7 +105,6 @@ export default function HomePage() {
                 setShowModal={setShowCreateModal}
                 onCreate={async (payload) => {
                   try {
-                    const businessId = localStorage.getItem("ccgBusinessId");
                     const docRef = await addDoc(collection(db, "businesses", businessId, "Projects"), {
                       ...payload,
                       createdAt: serverTimestamp(),

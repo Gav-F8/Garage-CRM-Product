@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auth } from "/src/firebase.js";
 import {
   extractName,
   fetchCustomerDetail,
@@ -11,11 +10,13 @@ import {
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 
 export default function VehicleDetailPage() {
   // Route and page-level state.
   const { vehicleId } = useParams();
   const navigate = useNavigate();
+  const { businessId, user, loading: authLoading } = useAuth();
   const [vehicle, setVehicle] = useState(null);
   const [customerName, setCustomerName] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
@@ -30,47 +31,52 @@ export default function VehicleDetailPage() {
 
   // Loads vehicle, linked customer, related projects, and total hours.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
       try {
-        const bizId = localStorage.getItem("ccgBusinessId");
-        if (!bizId) {
-          setLoading(false);
-          return;
-        }
-
-        // Fetch vehicle detail
-        const vehicleData = await fetchVehicleDetail(bizId, vehicleId);
+        const vehicleData = await fetchVehicleDetail(businessId, vehicleId);
+        if (cancelled) return;
         setVehicle(vehicleData);
 
         if (vehicleData) {
-          // Fetch customer name
           if (vehicleData.customerId) {
-            const name = extractName(await fetchCustomerDetail(bizId, vehicleData.customerId));
+            const name = extractName(
+              await fetchCustomerDetail(businessId, vehicleData.customerId),
+            );
+            if (cancelled) return;
             setCustomerName(name);
           }
 
-          // Fetch related projects
-          const projects = await fetchRelatedProjectsByVehicle(bizId, vehicleId);
+          const projects = await fetchRelatedProjectsByVehicle(businessId, vehicleId);
+          if (cancelled) return;
           setRelatedProjects(projects);
 
-          // Fetch total time logs
-          const logs = await fetchTotalTimeLogsVehicle(bizId, vehicleId);
+          const logs = await fetchTotalTimeLogsVehicle(businessId, vehicleId);
+          if (cancelled) return;
           setTimeLogs(logs);
         }
       } catch (error) {
         console.error("Error loading vehicle detail:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    });
+    })();
 
-    return () => unsubscribe();
-  }, [vehicleId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId, vehicleId]);
 
   // Loading and empty states.
   if (loading) {

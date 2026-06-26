@@ -13,6 +13,7 @@ import {
 } from "/src/lib/firestore-helpers.js";
 import { CreateButton } from "/src/components/ui/CreateButton";
 import { NHTSA, VEHICLE_TYPES, COLORS, YEARS } from "/src/lib/utils.js";
+import { readMakesCache, writeMakesCache } from "/src/lib/cache.js";
 
 const BLANK = {
   type: "",
@@ -97,14 +98,29 @@ export function CreateVehicleModal({ businessId, customers, onClose, onCreated }
   const [models, setModels] = useState([]);
   const [vinMsg, setVinMsg] = useState(null);
 
-  // Load makes once
+  // Load makes once, served from a 24h localStorage cache when available.
+  // GetAllMakes is ~11k entries and effectively static, so we avoid refetching
+  // it on every mount. VIN decode (DecodeVin) and per-make model lookups
+  // (GetModelsForMake) are intentionally left uncached: their params vary per
+  // call (a unique VIN / the selected make), so caching would rarely hit.
   useEffect(() => {
     if (makes.length) return;
+
+    const cached = readMakesCache();
+    if (cached) {
+      setMakes(cached);
+      return;
+    }
+
     fetch(`${NHTSA}/GetAllMakes?format=json`)
       .then((r) => r.json())
-      .then((d) => setMakes(d.Results.map((m) => m.Make_Name).sort()))
+      .then((d) => {
+        const sortedMakes = d.Results.map((m) => m.Make_Name).sort();
+        setMakes(sortedMakes);
+        writeMakesCache(sortedMakes);
+      })
       .catch(() => {});
-  }, []);
+  }, [makes.length]);
 
   // Load models when make changes
   useEffect(() => {

@@ -31,8 +31,7 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { 
-  fetchBusinessId,
+import {
   fetchCustomers,
   fetchMechanics,
   fetchVehicles,
@@ -40,6 +39,7 @@ import {
   createProject,
   extractName,
 } from "../lib/firestore-helpers";
+import { useAuth } from "../context/AuthContext";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { STATUS_OPTIONS } from "../lib/utils.js";
 import { notionClasses } from "../lib/notion-theme";
@@ -52,8 +52,7 @@ import ProjectsList from "../components/ProjectsList";
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function ProjectPage() {
-  const location = useState();
-  const [businessId, setBusinessId] = useState(null);
+  const { businessId, user, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [mechanics, setMechanics] = useState([]);
@@ -74,39 +73,33 @@ export default function ProjectPage() {
   // Fetch necessary data for job creation form (customers, vehicles, mechanics)
   // ══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        setCreationDataLoading(false);
-        return;
-      }
+    if (authLoading) return;
+    if (!user || !businessId) {
+      setCreationDataLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    (async () => {
       try {
-        const bizId =
-          (await fetchBusinessId(user.uid)) ||
-          localStorage.getItem("ccgBusinessId");
-        setBusinessId(bizId);
-
-        if (!bizId) {
-          setCreationDataLoading(false);
-          return;
-        }
-
         const [customerList, vehicleList, mechanicList] = await Promise.all([
-          fetchCustomers(bizId),
-          fetchVehicles(bizId),
-          fetchMechanics(bizId),
+          fetchCustomers(businessId),
+          fetchVehicles(businessId),
+          fetchMechanics(businessId),
         ]);
-
+        if (cancelled) return;
         setCustomers(customerList);
         setVehicles(vehicleList);
         setMechanics(mechanicList);
       } finally {
-        setCreationDataLoading(false);
+        if (!cancelled) setCreationDataLoading(false);
       }
-    });
+    })();
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId]);
 
   const handleJobSubmit = async (payload) => {
     setSubmitting(true);

@@ -36,11 +36,11 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "/src/firebase.js";
 import {
   fetchTotalHoursVehicle,
   fetchVehicles,
 } from "/src/lib/firestore-helpers.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
@@ -52,7 +52,7 @@ import { CreateButton } from "/src/components/ui/CreateButton";
 // ══════════════════════════════════════════════════════════════════════════════
 export default function VehiclePage() {
   const navigate = useNavigate();
-  const businessId = localStorage.getItem("ccgBusinessId");
+  const { businessId, user, loading: authLoading } = useAuth();
   const { customers: customersList } = useCustomersForCurrentUser(businessId);
   const customers = customersList.reduce((acc, c) => {
     acc[c.id] = c.name;
@@ -69,41 +69,46 @@ export default function VehiclePage() {
 
   // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        const bizId = localStorage.getItem("ccgBusinessId");
-        if (!bizId) {
-          navigate("/Login");
-          return;
-        }
-        
-        try {
-          const vehicleData = await fetchVehicles(bizId);
-          setItems(vehicleData);
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (!businessId) {
+      navigate("/Login");
+      return;
+    }
 
-            const hoursMap = {};
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
+      try {
+        const vehicleData = await fetchVehicles(businessId);
+        if (cancelled) return;
+        setItems(vehicleData);
 
-            await Promise.all(
-              vehicleData.map(async (item) => {
-                const hours = await fetchTotalHoursVehicle(
-                  bizId,
-                  item.id,
-                  item.customerId,
-                );
-                hoursMap[item.id] = hours;
-              }),
+        const hoursMap = {};
+        await Promise.all(
+          vehicleData.map(async (item) => {
+            const hours = await fetchTotalHoursVehicle(
+              businessId,
+              item.id,
+              item.customerId,
             );
-
-            setTotalHoursMap(hoursMap);
-          } finally {
-            setLoading(false);
-          }
-      } else {
-        setLoading(false);
+            hoursMap[item.id] = hours;
+          }),
+        );
+        if (cancelled) return;
+        setTotalHoursMap(hoursMap);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId, navigate]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();

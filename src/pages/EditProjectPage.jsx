@@ -12,6 +12,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 import { fetchMechanics, fetchVehicles, fetchProjectDetail, updateProjectValue } from "/src/lib/firestore-helpers.js";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { notionClasses } from "/src/lib/notion-theme";
@@ -21,8 +22,7 @@ export default function EditProjectPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
 
-  const businessId = localStorage.getItem("ccgBusinessId");
-  const userRole = localStorage.getItem("ccgUserRole");
+  const { businessId, role: userRole, loading: authLoading } = useAuth();
   const { customers, loading: customersLoading } = useCustomersForCurrentUser(businessId);
 
   const [mechanics, setMechanics] = useState([]);
@@ -80,6 +80,7 @@ export default function EditProjectPage() {
 
   // Load project data on mount and populate form
   useEffect(() => {
+    if (authLoading) return;
     async function loadProject() {
       if (!businessId) {
         setError("No business context found. Please sign in again.");
@@ -121,7 +122,7 @@ export default function EditProjectPage() {
     }
 
     loadProject();
-  }, [businessId, projectId]);
+  }, [authLoading, businessId, projectId]);
 
   function handleChange(e) {
     const { name, value } = e.target;

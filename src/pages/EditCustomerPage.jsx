@@ -6,19 +6,19 @@ import { db } from "/src/firebase";
 import {
   doc,
   getDoc,
-  updateDoc,
   deleteDoc,
-  serverTimestamp,
 } from "firebase/firestore";
+import { updateCustomerValue } from "/src/lib/firestore-helpers.js";
+import { invalidateCustomersCache } from "/src/lib/cache.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 
 export default function EditCustomerPage() {
   // Route navigation.
   const { customerId } = useParams();
   const navigate = useNavigate();
 
-  // Context from persisted business/session state.
-  const businessId = localStorage.getItem("ccgBusinessId");
-  const userRole = localStorage.getItem("ccgUserRole");
+  // Identity/role come from the global auth context (custom claims).
+  const { businessId, role: userRole, loading: authLoading } = useAuth();
 
   // Editable form and request state.
   const [formData, setFormData] = useState({
@@ -34,6 +34,7 @@ export default function EditCustomerPage() {
 
   // Loads customer fields for the edit form.
   useEffect(() => {
+    if (authLoading) return;
     async function loadCustomer() {
       if (!businessId) {
         setError("No business context found. Please sign in again.");
@@ -73,7 +74,7 @@ export default function EditCustomerPage() {
     }
 
     loadCustomer();
-  }, [businessId, customerId]);
+  }, [authLoading, businessId, customerId]);
 
   // Generic input handler for controlled fields.
   function handleChange(e) {
@@ -88,15 +89,16 @@ export default function EditCustomerPage() {
     setError("");
 
     try {
-      const success = await updateCustomerValue(businessId, customerId, formData)
+      const success = await updateCustomerValue(businessId, customerId, formData);
       if (success) {
+        // Invalidate the cached customer list so the edit is reflected
+        // immediately (the cache was previously only cleared on create).
+        invalidateCustomersCache(businessId);
         navigate(`/customers/${customerId}`);
+      } else {
+        setError("Failed to save customer.");
       }
-      else {
-        setError(err.message || "Failed to save customer.");
-      }
-    }
-    finally {
+    } finally {
       setSaving(false);
     }
   }
@@ -117,6 +119,8 @@ export default function EditCustomerPage() {
         customerId,
       );
       await deleteDoc(customerRef);
+      // Keep the cached customer list in sync after a delete.
+      invalidateCustomersCache(businessId);
       navigate("/customers");
     } catch (err) {
       console.error(err);

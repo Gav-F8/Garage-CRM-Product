@@ -27,6 +27,7 @@ import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
 import { statusStyle } from "/src/lib/utils.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
+import { useAuth } from "/src/context/AuthContext.jsx";
 
 // Genuinly dont know if or how any of this works, lowkey wil figure it out eventually tho
 // schizo code
@@ -65,7 +66,7 @@ export default function ProjectDetailsPage() {
   
   const notesUnsubscribeRef = useRef(null);
   const timeLogsUnsubscribeRef = useRef(null);
-  const businessId = localStorage.getItem("ccgBusinessId");
+  const { businessId } = useAuth();
 
   const { 
     timerSeconds,

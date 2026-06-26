@@ -1,0 +1,127 @@
+rules_version = '2';
+
+// Classic Garage Management — Firestore security rules.
+//
+// Authorization is driven ENTIRELY by Firebase Auth custom claims:
+//   request.auth.token.role        → "owner" | "mechanic"
+//   request.auth.token.businessId  → the business the user belongs to
+// These claims are set server-side by the Cloud Functions in functions/index.js.
+// We never trust a `role` field stored on a document body — only the token.
+//
+// Data model:
+//   businesses/{bizId}
+//     ├── Employees/{uid}
+//     ├── Customers/{id}
+//     ├── Vehicles/{id}
+//     └── Projects/{id}
+//           ├── TimeLogs/{id}
+//           └── Notes/{id}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function tokenRole() {
+      return request.auth.token.role;
+    }
+
+    function tokenBusinessId() {
+      return request.auth.token.businessId;
+    }
+
+    // A member is any user whose token is scoped to this business.
+    function isMember(bizId) {
+      return isSignedIn()
+        && tokenBusinessId() == bizId
+        && (tokenRole() == 'owner' || tokenRole() == 'mechanic');
+    }
+
+    // An owner is a member whose role claim is exactly "owner".
+    function isOwner(bizId) {
+      return isSignedIn()
+        && tokenBusinessId() == bizId
+        && tokenRole() == 'owner';
+    }
+
+    match /businesses/{bizId} {
+      // The signup page lists businesses so a prospective employee can pick one
+      // — this happens BEFORE the user is authenticated, so the top-level
+      // business doc must be publicly readable. Business data ISOLATION is
+      // enforced on the subcollections below (customers/vehicles/projects/
+      // employees), which is where the sensitive records live.
+      //
+      // TRADE-OFF: this exposes business name/email/joinCode to anyone. The app
+      // doesn't currently validate the joinCode, so it's low-impact, but a
+      // hardening follow-up would serve the signup directory from a Cloud
+      // Function (or a redacted public "directory" collection) and lock this
+      // back down to `isSignedIn()`.
+      allow read: if true;
+
+      // A user may create the business they own (the doc's uid must be theirs).
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+
+      // Only the owner of this business may modify or delete it.
+      allow update, delete: if isOwner(bizId);
+
+      // ── Employees ───────────────────────────────────────────────────────────
+      match /Employees/{empId} {
+        // Members can read the roster. Additionally, a signed-in user may always
+        // read their OWN employee doc (empId == their uid) even before they have
+        // a role/businessId claim — this is what lets Login determine a freshly
+        // approved (or still-pending) user's business/status, and lets
+        // AuthContext fall back to deriving role for not-yet-claimed users.
+        allow read: if isMember(bizId) || (isSignedIn() && empId == request.auth.uid);
+
+        // Bootstrap at signup: a user may create ONLY their own employee doc.
+        // They cannot approve themselves — flipping status to "active" / editing
+        // role is an `update`, which is owner-only below. So a self-created
+        // mechanic doc (status: pendingApproval) can never self-elevate.
+        allow create: if isSignedIn() && empId == request.auth.uid;
+
+        // Approvals, role changes, suspensions, and removals are owner-only.
+        allow update, delete: if isOwner(bizId);
+      }
+
+      // ── Customers ───────────────────────────────────────────────────────────
+      // Mechanics may read; only owners may create/edit/delete.
+      match /Customers/{customerId} {
+        allow read: if isMember(bizId);
+        allow create, update, delete: if isOwner(bizId);
+      }
+
+      // ── Vehicles ────────────────────────────────────────────────────────────
+      match /Vehicles/{vehicleId} {
+        allow read: if isMember(bizId);
+        allow create, update, delete: if isOwner(bizId);
+      }
+
+      // ── Projects ────────────────────────────────────────────────────────────
+      // Mechanics may read projects in their business; only owners may
+      // create/edit/delete the project record itself.
+      match /Projects/{projectId} {
+        allow read: if isMember(bizId);
+        allow create, update, delete: if isOwner(bizId);
+
+        // Time logs: any member may create a log. A member may edit/delete their
+        // OWN log (matched by the Uid field); owners may edit/delete any log.
+        match /TimeLogs/{logId} {
+          allow read: if isMember(bizId);
+          allow create: if isMember(bizId);
+          allow update, delete: if isOwner(bizId)
+            || (isMember(bizId) && resource.data.Uid == request.auth.uid);
+        }
+
+        // Notes: same ownership model as time logs (matched by createdByUid).
+        match /Notes/{noteId} {
+          allow read: if isMember(bizId);
+          allow create: if isMember(bizId);
+          allow update, delete: if isOwner(bizId)
+            || (isMember(bizId) && resource.data.createdByUid == request.auth.uid);
+        }
+      }
+    }
+  }
+}

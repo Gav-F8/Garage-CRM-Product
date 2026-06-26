@@ -52,8 +52,15 @@ export default function LoginPage() {
       if (!bizSnapshot.empty) {
         const businessId = bizSnapshot.docs[0].id;
 
+        // Role now comes from the Firebase Auth custom claim (set by the
+        // onBusinessCreated / onEmployeeWritten Cloud Functions), read via
+        // AuthContext. `ccgBusinessId` is kept only as a fast fallback cache —
+        // AuthContext prefers the businessId claim when present.
         localStorage.setItem("ccgBusinessId", businessId);
-        localStorage.setItem("ccgUserRole", "owner");
+
+        // Force a token refresh so the freshly-loaded claims are available to
+        // AuthContext immediately, without requiring a second login.
+        await user.getIdToken(true);
 
         navigate("/home");
         return;
@@ -92,9 +99,12 @@ export default function LoginPage() {
             return;
           }
 
-          const empRole = empData.role === "owner" ? "owner" : "mechanic";
+          // Role is sourced from the custom claim (set when the owner approved
+          // this employee). Keep businessId as a fallback cache only.
           localStorage.setItem("ccgBusinessId", bizDoc.id);
-          localStorage.setItem("ccgUserRole", empRole);
+
+          // Refresh so the approval claim (role/businessId) is on the token now.
+          await user.getIdToken(true);
 
           navigate("/home");
           return;

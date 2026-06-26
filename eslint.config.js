@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // dist = build output; functions/ and firestore-tests/ are Node code (their
+  // own runtime/globals), linted separately from the browser app if at all.
+  globalIgnores(['dist', 'dev-dist', 'functions', 'firestore-tests']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

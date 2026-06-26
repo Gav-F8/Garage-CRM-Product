@@ -1,18 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { auth, db } from "/src/firebase.js";
 import { useNavigate } from "react-router-dom";
-import {
-  fetchCustomers,
-  fetchTotalHoursCustomer,
-  fetchEmployeeDetail,
-  extractName,
-  createCustomer,
-} from "/src/lib/firestore-helpers.js";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-} from "firebase/firestore";
+import { fetchCustomers, fetchTotalHoursCustomer } from "/src/lib/firestore-helpers.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { CreateCustomerModal } from "@/components/CreateCustomerModal";
@@ -23,11 +12,11 @@ import { CreateButton } from "@/components/ui/CreateButton";
 // ══════════════════════════════════════════════════════════════════════════════
 export default function CreateCustomerPage() {
   const navigate = useNavigate();
+  const { role, businessId, user, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
-  const [businessId, setBusinessId] = useState(null);
   const searchInputRef = useRef(null);
   const [totalHoursMap, setTotalHoursMap] = useState({});
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -35,36 +24,34 @@ export default function CreateCustomerPage() {
 
   // Allow access for mechanics and other roles; role-based routing is handled elsewhere if needed.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        const bizId = localStorage.getItem("ccgBusinessId");
-        if (!bizId) {
-          navigate("/Login");
-          return;
-        }
-        setBusinessId(bizId);
-        fetchCustomers(bizId)
-          .then(async (customerData) => {
-            setCustomers(customerData);
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (!businessId) {
+      navigate("/Login");
+      return;
+    }
 
-            const hoursMap = {};
+    setLoading(true);
+    fetchCustomers(businessId)
+      .then(async (customerData) => {
+        setCustomers(customerData);
 
-            await Promise.all(
-              customerData.map(async (customer) => {
-                const hours = await fetchTotalHoursCustomer(bizId, customer.id);
-                hoursMap[customer.id] = hours;
-              }),
-            );
+        const hoursMap = {};
 
-            setTotalHoursMap(hoursMap);
-          })
-          .finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
+        await Promise.all(
+          customerData.map(async (customer) => {
+            const hours = await fetchTotalHoursCustomer(businessId, customer.id);
+            hoursMap[customer.id] = hours;
+          }),
+        );
+
+        setTotalHoursMap(hoursMap);
+      })
+      .finally(() => setLoading(false));
+  }, [authLoading, user, businessId, navigate]);
 
   // Clear search input after modal closes to prevent autofill
   useEffect(() => {
@@ -107,7 +94,7 @@ export default function CreateCustomerPage() {
 
           {customers.length > 0 &&
             loading === false &&
-            localStorage.getItem("ccgUserRole") === "owner" && (
+            role === "owner" && (
               <CreateButton
                 onClick={() => setShowModal(true)}
                 buttonText="+ New Customer"
@@ -138,7 +125,7 @@ export default function CreateCustomerPage() {
         ) : customers.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No customers yet.</p>
-            {localStorage.getItem("ccgUserRole") === "owner" && (
+            {role === "owner" && (
               <div className="flex justify-center">
                 <CreateButton
                   onClick={() => setShowModal(true)}

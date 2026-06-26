@@ -4,16 +4,13 @@ import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { VEHICLE_TYPES, NHTSA, } from "/src/lib/utils.js";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 import { db } from "/src/firebase";
 import {
   doc,
   getDoc,
-  getDocs,
   updateDoc,
   deleteDoc,
-  collection,
-  query,
-  orderBy,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -22,9 +19,8 @@ export default function EditVehiclePage() {
   const { vehicleId: vehicleId } = useParams();
   const navigate = useNavigate();
 
-  // Context from persisted business/session state.
-  const businessId = localStorage.getItem("ccgBusinessId");
-  const userRole = localStorage.getItem("ccgUserRole");
+  // Identity/role come from the global auth context (custom claims).
+  const { businessId, role: userRole, loading: authLoading } = useAuth();
 
   // Editable form and request state.
   const [formData, setFormData] = useState({
@@ -48,6 +44,7 @@ export default function EditVehiclePage() {
 
   // Loads vehicle fields for the edit form.
   useEffect(() => {
+    if (authLoading) return;
     async function loadVehicle() {
       if (!businessId) {
         setError("No business context found. Please sign in again.");
@@ -88,7 +85,7 @@ export default function EditVehiclePage() {
     }
 
     loadVehicle();
-  }, [businessId, vehicleId]);
+  }, [authLoading, businessId, vehicleId]);
 
   // Generic input handler for controlled fields.
   function handleChange(e) {
@@ -105,7 +102,7 @@ export default function EditVehiclePage() {
     try {
       const ref = doc(db, "businesses", businessId, "Vehicles", vehicleId);
       await updateDoc(ref, { ...formData, updatedAt: serverTimestamp() });
-      navigate(`/vehicles/${vehicleId}`);F
+      navigate(`/vehicles/${vehicleId}`);
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to save vehicle.");

@@ -77,6 +77,9 @@ export default function SignupPage() {
       if (role === 'business') {
         const generatedJoinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+        // Creating this business document triggers the onBusinessCreated Cloud
+        // Function, which sets this user's { role: "owner", businessId } custom
+        // claim. The claim is read on the client via AuthContext after login.
         const businessRef = doc(collection(db, "businesses"));
         await setDoc(businessRef, {
           uid: user.uid,

@@ -13,6 +13,8 @@ import {
   collection,
   serverTimestamp,
 } from "firebase/firestore";
+import { useAuth } from "/src/context/AuthContext.jsx";
+import { invalidateCustomersCache } from "/src/lib/cache.js";
 import "/src/components/ui/CreateButton";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -74,6 +76,7 @@ function Input({
 // New Customer Create Modal
 // ══════════════════════════════════════════════════════════════════════════════
 export function CreateCustomerModal({ onClose, onCreated, businessId }) {
+  const { role } = useAuth();
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -92,7 +95,7 @@ export function CreateCustomerModal({ onClose, onCreated, businessId }) {
   };
 
   const handleSubmit = async () => {
-    if (localStorage.getItem("ccgUserRole") !== "owner") {
+    if (role !== "owner") {
       setNotice("Only owner can add customer.");
       return;
     }
@@ -136,8 +139,8 @@ export function CreateCustomerModal({ onClose, onCreated, businessId }) {
         createdByEmployeeName: employeeName,
       });
 
-      // Clear the customer cache to ensure new customer appears in list
-      localStorage.removeItem(`customers_${businessId}`);
+      // Clear the customer cache so the new customer appears in cached lists.
+      invalidateCustomersCache(businessId);
 
       onClose();
     } catch (error) {
