@@ -29,6 +29,7 @@
 
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Car, ChevronRight } from "lucide-react";
 import { STATUS_OPTIONS, getStatusMeta, statusStyle, isWIPStatus, isCompleteStatus } from "../lib/utils.js";
 
 // Uses toMillis to normalize timestamp to ms then compare the last updated timestamps of projects
@@ -79,18 +80,19 @@ function ProjectRow({ project }) {
       aria-label={`Open project ${project.title || "Untitled Project"}`}
       className="block border-b border-[#E0E0E0] last:border-b-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F6FED] focus-visible:ring-inset"
     >
-      <div className="flex items-center w-full px-6 py-3.5 transition-all duration-150 hover:bg-[#F7F7F5] hover:scale-[1.01] active:scale-[0.995]">
-        <span className="font-mono font-semibold text-sm w-32 shrink-0 text-[#37352F]">
+      {/* Tablet / desktop row */}
+      <div className="hidden sm:flex items-center w-full px-6 py-3.5 transition-all duration-150 hover:bg-[#F7F7F5] hover:scale-[1.01] active:scale-[0.995]">
+        <span className="font-mono font-semibold text-sm w-32 shrink-0 truncate text-[#37352F]">
           {project.vehicleLabel || "-"}
         </span>
 
-        <span className="flex-1 px-5 text-sm font-medium text-[#2F6FED]">
+        <span className="flex-1 min-w-0 px-5 text-sm font-medium text-[#2F6FED] truncate">
           {project.title || "Untitled Project"}
         </span>
 
         <div className="w-40 shrink-0">
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style}`}
+            className={`inline-flex items-center max-w-full px-2.5 py-0.5 rounded-md text-xs font-medium truncate ${style}`}
           >
             {label}
           </span>
@@ -98,13 +100,44 @@ function ProjectRow({ project }) {
 
         <div className="flex items-center gap-2 w-36 shrink-0">
           <div
-            className={`w-3.5 h-3.5 rounded-sm border border-[#E0E0E0] ${isProjectActive ? "bg-[#37352F]" : "bg-white"}`}
+            className={`w-3.5 h-3.5 shrink-0 rounded-sm border border-[#E0E0E0] ${isProjectActive ? "bg-[#37352F]" : "bg-white"}`}
             title={isProjectActive ? "Active" : "Inactive"}
           />
           <span className="text-sm text-[#787774]">
             {isProjectActive ? "Active" : "Inactive"}
           </span>
         </div>
+      </div>
+
+      {/* Mobile card */}
+      <div className="sm:hidden flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[#F7F7F5] active:bg-blue-50">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-medium text-[#2F6FED] truncate">
+              {project.title || "Untitled Project"}
+            </span>
+            <span
+              className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style}`}
+            >
+              {label}
+            </span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-3 text-xs text-[#787774]">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <Car className="h-3.5 w-3.5 shrink-0 text-[#9B9A97]" />
+              <span className="truncate font-mono">
+                {project.vehicleLabel || "-"}
+              </span>
+            </span>
+            <span className="flex items-center gap-1.5 shrink-0">
+              <span
+                className={`w-2.5 h-2.5 rounded-sm border border-[#E0E0E0] ${isProjectActive ? "bg-[#37352F]" : "bg-white"}`}
+              />
+              {isProjectActive ? "Active" : "Inactive"}
+            </span>
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-[#9B9A97]" />
       </div>
     </Link>
   );
@@ -262,11 +295,11 @@ export default function ProjectsList({
         </div>
       ) : (
         <div className="flex flex-col w-full bg-white border border-[#E0E0E0] rounded-xl shadow-sm overflow-hidden">
-          <div className="flex items-center w-full px-6 py-3 bg-[#F7F7F5] border-b border-[#E0E0E0] text-xs font-semibold text-[#787774] uppercase tracking-wider">
-            <span className="w-32 shrink-0">Car Make</span>
-            <span className="px-5 flex-1">Job Title</span>
-            <span className="w-40 shrink-0">Status</span>
-            <span className="w-36 shrink-0">Active</span>
+          <div className="hidden sm:flex items-center w-full px-6 py-3 bg-[#F7F7F5] border-b border-[#E0E0E0] text-xs font-semibold text-[#787774] uppercase tracking-wider">
+            <span className="w-32 shrink-0 truncate">Car Make</span>
+            <span className="px-5 flex-1 min-w-0 truncate">Job Title</span>
+            <span className="w-40 shrink-0 truncate">Status</span>
+            <span className="w-36 shrink-0 truncate">Active</span>
           </div>
 
           {filteredProjects.map((project) => (

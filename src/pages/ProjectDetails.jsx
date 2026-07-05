@@ -524,7 +524,7 @@ export default function ProjectDetailsPage() {
           <p className="text-sm text-[#787774]">No project data found.</p>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
               <div>
                 <h1 className={notionClasses.header.title}>
                   {project.title || "Untitled Project"}

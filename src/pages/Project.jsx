@@ -189,7 +189,7 @@ export default function ProjectPage() {
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
             <h1 className={notionClasses.header.title}>Jobs</h1>
             <p className={notionClasses.header.subtitle}>
@@ -199,7 +199,11 @@ export default function ProjectPage() {
 
           {/* Create Job Button */}
           {!creationDataLoading && (
-            <CreateProjectFlow submitting={submitting} onCreate={handleJobSubmit} />
+            <CreateProjectFlow
+              submitting={submitting}
+              onCreate={handleJobSubmit}
+              buttonClassName="w-full sm:w-auto"
+            />
           )}
         </div>
 

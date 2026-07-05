@@ -401,7 +401,7 @@ function EmployeeCard({
 
   return (
     <div
-      className={`${notionClasses.card} flex items-center justify-between gap-4`}
+      className={`${notionClasses.card} flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4`}
     >
       {/* Clickable avatar + info */}
       <button
@@ -435,7 +435,7 @@ function EmployeeCard({
       </button>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         {variant === "pending" && (
           <>
             <button

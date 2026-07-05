@@ -11,6 +11,7 @@ import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
 import { useAuth } from "/src/context/AuthContext.jsx";
+import { ChevronRight } from "lucide-react";
 
 export default function VehicleDetailPage() {
   // Route and page-level state.
@@ -112,7 +113,7 @@ export default function VehicleDetailPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-6 gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div>
             <h1 className={notionClasses.header.title}>
               {vehicle.vehicleLabel ||
@@ -279,7 +280,7 @@ export default function VehicleDetailPage() {
               No projects related to this vehicle.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E0E0E0]">
+            <div className="hidden sm:block overflow-x-auto rounded-lg border border-[#E0E0E0]">
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-[#F7F6F3]">
@@ -335,6 +336,40 @@ export default function VehicleDetailPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {relatedProjects.length > 0 && (
+            <div className="sm:hidden divide-y divide-[#E0E0E0] rounded-lg border border-[#E0E0E0] overflow-hidden">
+              {relatedProjects.map((project) => {
+                const { label, style } = statusStyle(project.status);
+                return (
+                  <div
+                    key={project.id}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                    className="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-blue-50 active:bg-blue-100"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-[#37352F] truncate">
+                          {project.title || "-"}
+                        </span>
+                        <span
+                          className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style}`}
+                        >
+                          {label || "-"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#787774]">
+                        {project.createdAt
+                          ? new Date(project.createdAt.toDate()).toLocaleDateString()
+                          : "-"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[#9B9A97]" />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

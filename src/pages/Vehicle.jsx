@@ -46,6 +46,7 @@ import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { CreateVehicleModal } from "/src/components/CreateVehicleModal"
 import { CreateButton } from "/src/components/ui/CreateButton";
+import { Hash, User, ChevronRight } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Main Page
@@ -134,7 +135,7 @@ export default function VehiclePage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
             <h1 className={notionClasses.header.title}>Vehicles</h1>
             <p className={notionClasses.header.subtitle}>
@@ -144,9 +145,10 @@ export default function VehiclePage() {
           </div>
 
           {items.length > 0 && loading === false && (
-            <CreateButton 
+            <CreateButton
               onClick={() => setShowModal(true)}
-              buttontext="+ New Vehicle"
+              buttonText="+ New Vehicle"
+              className="w-full sm:w-auto"
             />
           )}
         </div>
@@ -201,8 +203,8 @@ export default function VehiclePage() {
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-hidden border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
+            {/* Table (tablet / desktop) */}
+            <div className="hidden sm:block overflow-x-auto border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
               <table className="min-w-full">
                 <thead>
                   <tr>
@@ -235,6 +237,45 @@ export default function VehiclePage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Card list (mobile) */}
+            <div className="sm:hidden divide-y divide-[#E0E0E0] border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
+              {paginatedData.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(`/vehicles/${item.id}`)}
+                  className="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-blue-50 active:bg-blue-100"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-semibold text-[#37352F] truncate">
+                        {[item.year, item.make, item.model]
+                          .filter(Boolean)
+                          .join(" ") || "-"}
+                      </span>
+                      <span className="shrink-0 rounded-md bg-[#F7F6F3] px-2 py-0.5 text-xs font-medium text-[#787774]">
+                        {totalHoursMap[item.id] || "0h 0m"}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 space-y-1">
+                      {item.plate && (
+                        <p className="flex items-center gap-2 text-xs text-[#787774]">
+                          <Hash className="h-3.5 w-3.5 shrink-0 text-[#9B9A97]" />
+                          <span className="truncate">{item.plate}</span>
+                        </p>
+                      )}
+                      <p className="flex items-center gap-2 text-xs text-[#787774]">
+                        <User className="h-3.5 w-3.5 shrink-0 text-[#9B9A97]" />
+                        <span className="truncate">
+                          {customers[item.customerId] || "-"}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[#9B9A97]" />
+                </div>
+              ))}
             </div>
 
             {/* Pagination Controls */}

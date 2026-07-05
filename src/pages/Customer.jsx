@@ -6,6 +6,7 @@ import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar.jsx";
 import { CreateCustomerModal } from "@/components/CreateCustomerModal";
 import { CreateButton } from "@/components/ui/CreateButton";
+import { Mail, Phone, MapPin, ChevronRight } from "lucide-react";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Main Page
@@ -84,7 +85,7 @@ export default function CreateCustomerPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
             <h1 className={notionClasses.header.title}>Customers</h1>
             <p className={notionClasses.header.subtitle}>
@@ -98,6 +99,7 @@ export default function CreateCustomerPage() {
               <CreateButton
                 onClick={() => setShowModal(true)}
                 buttonText="+ New Customer"
+                className="w-full sm:w-auto"
               />
             )}
         </div>
@@ -129,7 +131,7 @@ export default function CreateCustomerPage() {
               <div className="flex justify-center">
                 <CreateButton
                   onClick={() => setShowModal(true)}
-                  buttonttext="+ Create Customer"
+                  buttonText="+ Create Customer"
                 />
               </div>
             )}
@@ -159,8 +161,8 @@ export default function CreateCustomerPage() {
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-hidden border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
+            {/* Table (tablet / desktop) */}
+            <div className="hidden sm:block overflow-x-auto border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
               <table className="min-w-full">
                 <thead>
                   <tr>
@@ -195,6 +197,49 @@ export default function CreateCustomerPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Card list (mobile) */}
+            <div className="sm:hidden divide-y divide-[#E0E0E0] border border-[#E0E0E0] border-t-0 bg-white shadow-sm">
+              {paginatedData.map((c) => (
+                <div
+                  key={c.id}
+                  onClick={() => navigate(`/customers/${c.id}`)}
+                  className="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-blue-50 active:bg-blue-100"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-semibold text-[#37352F] truncate">
+                        {c.name || "-"}
+                      </span>
+                      <span className="shrink-0 rounded-md bg-[#F7F6F3] px-2 py-0.5 text-xs font-medium text-[#787774]">
+                        {totalHoursMap[c.id] || "0h 0m"}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 space-y-1">
+                      {c.email && (
+                        <p className="flex items-center gap-2 text-xs text-[#787774] truncate">
+                          <Mail className="h-3.5 w-3.5 shrink-0 text-[#9B9A97]" />
+                          <span className="truncate">{c.email}</span>
+                        </p>
+                      )}
+                      {c.phone && (
+                        <p className="flex items-center gap-2 text-xs text-[#787774] truncate">
+                          <Phone className="h-3.5 w-3.5 shrink-0 text-[#9B9A97]" />
+                          <span className="truncate">{c.phone}</span>
+                        </p>
+                      )}
+                      {c.address && (
+                        <p className="flex items-center gap-2 text-xs text-[#787774] truncate">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-[#9B9A97]" />
+                          <span className="truncate">{c.address}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-[#9B9A97]" />
+                </div>
+              ))}
             </div>
 
             {/* Pagination Controls */}
