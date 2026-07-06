@@ -3,6 +3,39 @@
 This project's authorization is driven by **Firebase Auth custom claims**, enforced
 by **Firestore security rules**, and exercised by **emulator-based rule tests**.
 
+## Secrets & keys
+
+**Not a secret:** the Firebase web config (`VITE_FIREBASE_*` in `.env.local`).
+The web API key only identifies the project and ships in every client bundle —
+anyone can read it from the deployed site's JS. It is kept out of git as hygiene
+(`.env.local` is covered by `*.local` in `.gitignore`), but hiding it is not what
+protects the data. Protection comes from Firestore rules + custom claims (below),
+**App Check**, and API-key restrictions in Google Cloud Console.
+
+**A real secret:** service-account JSON keys (used only by the one-off backfill
+script). These grant full admin access, are gitignored as `serviceAccount*.json`,
+and must never be committed, shared, or bundled. Delete downloaded keys when done.
+
+### Local setup
+
+Copy `.env.example` to `.env.local` and fill in the values from Firebase console →
+Project settings → General → Your apps.
+
+### App Check (reCAPTCHA v3)
+
+`src/firebase.js` initializes App Check when `VITE_RECAPTCHA_SITE_KEY` is set;
+it attests that requests to Auth/Firestore come from this app rather than an
+arbitrary script reusing the public API key.
+
+On a **new dev machine** (or after clearing site data), the SDK prints an
+App Check *debug token* in the browser console on first run. Register it under
+Firebase console → App Check → Apps → (web app) → Manage debug tokens, or dev
+requests will fail once enforcement is on.
+
+**Rollout:** register the app in Firebase console → App Check with the
+reCAPTCHA v3 provider, run in **monitor mode** first, and only click *Enforce*
+for Firestore/Auth after the metrics show legitimate traffic verifying cleanly.
+
 ## Roles via custom claims
 
 A user's `role` (`"owner"` | `"mechanic"`) and `businessId` live on their Auth
