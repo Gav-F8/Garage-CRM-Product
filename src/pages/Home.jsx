@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { auth, db } from "/src/firebase.js";
-import { getDocs, addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "/src/firebase.js";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { fetchCustomers, fetchVehicles, fetchProjects } from "../lib/firestore-helpers";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
+import { useAuth } from "../context/AuthContext";
 import { NavigationBar } from "../components/NavigationBar";
-import { CreateJobFlow } from "/src/components/CreateJobModal.jsx";
+import { CreateProjectFlow } from "/src/components/CreateProjectModal.jsx";
 import ProjectsList from "../components/ProjectsList";
 
 export default function HomePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const { businessId, user, loading: authLoading } = useAuth();
 
   const {
     projects,
@@ -18,7 +21,7 @@ export default function HomePage() {
     hasMore,
     loadingMore,
     loadMore,
-  } = useProjectsForCurrentUser();
+  } = useProjectsForCurrentUser({ businessId, enabled: Boolean(businessId) });
 
   const [stats, setStats] = useState({
     totalCustomers: 0,
@@ -28,35 +31,33 @@ export default function HomePage() {
   const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     const fetchStats = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
+        if (!user || !businessId) {
+          setStatsLoading(false);
+          return;
+        }
 
-        const businessId = localStorage.getItem("ccgBusinessId");
-        if (!businessId) return;
+        // Fetch customers count
+        const customersSnap = await fetchCustomers(businessId);
 
-        const customersSnap = await getDocs(
-          collection(db, "businesses", businessId, "Customers")
-        );
+        // Fetch vehicles count
+        const vehiclesSnap = await fetchVehicles(businessId);
 
-        const vehiclesSnap = await getDocs(
-          collection(db, "businesses", businessId, "storage")
-        );
-
+        // Fetch projects count
+        const projectsSnap = await fetchProjects(businessId);
         const completeAliases = STATUS_OPTIONS.find(s => s.key === "complete")?.aliases ?? [];
 
-        const projectsSnap = await getDocs(
-          collection(db, "businesses", businessId, "Projects")
-        );
-        const projectsInProgress = projectsSnap.docs.filter(
-          (d) => !completeAliases.includes(d.data().status)
+        // get number of projects that are not complete.
+        const projectsInProgress = projectsSnap.filter(
+          (project) => !completeAliases.includes(project.status)
         ).length;
 
         setStats({
-          totalCustomers: customersSnap.size,
+          totalCustomers: customersSnap.length,
           projectsInProgress,
-          totalVehicles: vehiclesSnap.size,
+          totalVehicles: vehiclesSnap.length,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -66,7 +67,7 @@ export default function HomePage() {
     };
 
     fetchStats();
-  }, []);
+  }, [authLoading, user, businessId]);
 
   return (
     <div className="min-h-screen bg-[#F7F7F5]">
@@ -97,14 +98,13 @@ export default function HomePage() {
                   Create New Job
                 </div>
               </button>
-              <CreateJobFlow
+              <CreateProjectFlow 
                 submitting={false}
                 renderButton={false}
                 showModal={showCreateModal}
                 setShowModal={setShowCreateModal}
                 onCreate={async (payload) => {
                   try {
-                    const businessId = localStorage.getItem("ccgBusinessId");
                     const docRef = await addDoc(collection(db, "businesses", businessId, "Projects"), {
                       ...payload,
                       createdAt: serverTimestamp(),
@@ -143,7 +143,7 @@ export default function HomePage() {
                 </Link>
 
                 <Link
-                  to="/customer"
+                  to="/customers"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
@@ -162,7 +162,7 @@ export default function HomePage() {
                 </Link>
 
                 <Link
-                  to="/storage"
+                  to="/vehicles"
                   className="block bg-white rounded-xl border border-[#E0E0E0] shadow-sm p-6 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer"
                 >
                   <div className="flex items-center justify-between">

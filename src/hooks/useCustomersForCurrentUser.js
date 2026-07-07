@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import {
-  getDocs,
-  query,
-  collection,
-  orderBy,
-} from "firebase/firestore";
-import { db } from "/src/firebase.js";
+import { fetchCustomers } from "../lib/firestore-helpers";
+import { readCustomersCache, writeCustomersCache } from "../lib/cache";
 
-// Context for fetching customer data for the current business. Returns list of customers with loading/error state.
+// Fetches the customer list for the current business, backed by a short-lived
+// localStorage cache (see src/lib/cache.js). The cache is invalidated by the
+// create/update/delete flows, and additionally self-heals via a TTL.
 export function useCustomersForCurrentUser(businessId) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,43 +12,42 @@ export function useCustomersForCurrentUser(businessId) {
 
   useEffect(() => {
     if (!businessId) {
+      setCustomers([]);
       setLoading(false);
       return;
     }
 
+    let cancelled = false;
+
     const loadCustomers = async () => {
       try {
-        const cacheKey = `customers_${businessId}`;
-        const cached = localStorage.getItem(cacheKey);
-
+        const cached = readCustomersCache(businessId);
         if (cached) {
-          setCustomers(JSON.parse(cached));
-          setLoading(false);
+          if (!cancelled) {
+            setCustomers(cached);
+            setLoading(false);
+          }
           return;
         }
 
-        const customersSnap = await getDocs(
-          query(
-            collection(db, "businesses", businessId, "Customers"),
-            orderBy("name")
-          )
-        );
-        
-        const customersData = customersSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const customersData = await fetchCustomers(businessId);
+        if (cancelled) return;
 
-        localStorage.setItem(cacheKey, JSON.stringify(customersData));
+        writeCustomersCache(businessId, customersData);
         setCustomers(customersData);
       } catch (err) {
-        setError(err.message);
+        if (!cancelled) setError(err.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
+    setLoading(true);
     loadCustomers();
+
+    return () => {
+      cancelled = true;
+    };
   }, [businessId]);
 
   return { customers, loading, error };

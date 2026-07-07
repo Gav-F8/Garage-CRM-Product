@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { STATUS_OPTIONS } from "/src/lib/utils.js";
-import { fetchCustomers, fetchStorage, fetchMechanics } from "/src/lib/firestore-helpers.js";
+import { fetchCustomers, fetchVehicles, fetchMechanics } from "/src/lib/firestore-helpers.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
+import { CreateButton } from "/src/components/ui/CreateButton";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form initial state and validation logic
@@ -10,17 +12,17 @@ import { fetchCustomers, fetchStorage, fetchMechanics } from "/src/lib/firestore
 const INITIAL_JOB_FORM = {
   title: "",
   customerId: "",
-  carId: "",
+  vehicleId: "",
   status: "",
   description: "",
   assignedMechanicIds: [],
 };
 
-function validateJobForm(form) {
+function validateProjectForm(form) {
   const errors = {};
   if (!form.title.trim()) errors.title = "Please enter a job title";
   if (!form.customerId) errors.customerId = "Please select a customer";
-  if (!form.carId) errors.carId = "Please select a vehicle";
+  if (!form.vehicleId) errors.vehicleId = "Please select a vehicle";
   if (!form.status) errors.status = "Please select a status";
   if (!form.assignedMechanicIds.length) {
     errors.assignedMechanicIds = "Please select atleast one mechanic";
@@ -28,30 +30,19 @@ function validateJobForm(form) {
   return errors;
 }
 
-function CreateButton({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium shadow-sm transition-all"
-    >
-      + New Job
-    </button>
-  );
-}
-
-export { CreateButton };
-
 // ══════════════════════════════════════════════════════════════════════════════
 // New Job Creation Form
 // ══════════════════════════════════════════════════════════════════════════════
 
-function CreateModal({
+export function CreateProjectModal({
   submitting,
   onClose,
   onCreate,
 }) {
   const navigate = useNavigate();
+  const { businessId, loading: authLoading } = useAuth();
 
+  // Form state
   const [form, setForm] = useState(INITIAL_JOB_FORM);
   const [errors, setErrors] = useState({});
   const [selectedMechanicId, setSelectedMechanicId] = useState("");
@@ -63,37 +54,41 @@ function CreateModal({
   const [loadingData, setLoadingData] = useState(true);
   const [dataError, setDataError] = useState("");
 
-  // Fetch modal data on mount
+  // Fetch modal data on mount (once auth/claims resolve)
   useEffect(() => {
+    if (authLoading) return;
+    if (!businessId) {
+      setDataError("No business context found");
+      setLoadingData(false);
+      return;
+    }
+
+    let cancelled = false;
     async function loadModalData() {
       try {
-        const businessId = localStorage.getItem("ccgBusinessId");
-        if (!businessId) {
-          setDataError("No business context found");
-          setLoadingData(false);
-          return;
-        }
-
         const [customerList, vehicleList, mechanicList] = await Promise.all([
           fetchCustomers(businessId),
-          fetchStorage(businessId),
+          fetchVehicles(businessId),
           fetchMechanics(businessId),
         ]);
-
+        if (cancelled) return;
         setCustomers(customerList);
         setVehicles(vehicleList);
         setMechanics(mechanicList);
       } catch (err) {
         console.error("Error loading modal data:", err);
-        setDataError("Failed to load form data");
+        if (!cancelled) setDataError("Failed to load form data");
       } finally {
-        setLoadingData(false);
+        if (!cancelled) setLoadingData(false);
       }
     }
 
     loadModalData();
-  }, []);
-
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, businessId]);
+  
   // Add mechanic to the assignedMechanicIds array in form state
   const addMechanic = (mechanicId) => {
     if (!mechanicId) return;
@@ -128,27 +123,33 @@ function CreateModal({
   const setField = (name, value) => {
     setForm((prev) => {
       if (name === "customerId") {
-        return { ...prev, customerId: value, carId: "" };
+        return { ...prev, customerId: value, vehicleId: "" };
       }
       return { ...prev, [name]: value };
     });
     setErrors((prev) => ({ ...prev, [name]: "" }));
     if (name === "customerId") {
-      setErrors((prev) => ({ ...prev, customerId: "", carId: "" }));
+      setErrors((prev) => ({ ...prev, customerId: "", vehicleId: "" }));
     }
   };
 
   const handleSubmit = async () => {
-    const formErrors = validateJobForm(form);
+    const formErrors = validateProjectForm(form);
     if (Object.keys(formErrors).length) {
       setErrors(formErrors);
       return;
     }
+    
+    const selectedVehicle = vehicles.find((vehicle) => vehicle.id === form.vehicleId);
+    const vehicleLabel = [selectedVehicle?.year, selectedVehicle?.make, selectedVehicle?.model]
+      .filter(Boolean)
+      .join(" ");
 
     const jobId = await onCreate({
       title: form.title.trim(),
       customerId: form.customerId,
-      carId: form.carId,
+      vehicleId: form.vehicleId,
+      vehicleLabel: vehicleLabel || null,
       status: form.status,
       description: form.description,
       assignedMechanicIds: form.assignedMechanicIds,
@@ -240,8 +241,8 @@ function CreateModal({
             Vehicle *
           </label>
           <select
-            value={form.carId}
-            onChange={(event) => setField("carId", event.target.value)}
+            value={form.vehicleId}
+            onChange={(event) => setField("vehicleId", event.target.value)}
             disabled={!form.customerId || filteredVehicles.length === 0}
             className="w-full rounded-lg border border-[#E0E0E0] bg-[#F7F6F3] px-3 py-2 text-sm text-[#37352F] outline-none transition-all focus:border-[#37352F] focus:bg-white disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -262,8 +263,8 @@ function CreateModal({
               </option>
             ))}
           </select>
-          {errors.carId && (
-            <p className="text-xs text-[#C53030]">{errors.carId}</p>
+          {errors.vehicleId && (
+            <p className="text-xs text-[#C53030]">{errors.vehicleId}</p>
           )}
         </div>
 
@@ -376,20 +377,19 @@ function CreateModal({
   );
 }
 
-export { CreateModal };
-
 // Combined button + modal component
-export function CreateJobFlow({ submitting, onCreate, renderButton = true, showModal: externalShowModal, setShowModal: externalSetShowModal }) {
+export function CreateProjectFlow({ submitting, onCreate, renderButton = true, buttonClassName = "", showModal: externalShowModal, setShowModal: externalSetShowModal }) {
   const [internalShowModal, setInternalShowModal] = useState(false);
 
+  // Use external state if provided, otherwise use internal state
   const showModal = externalShowModal !== undefined ? externalShowModal : internalShowModal;
   const setShowModal = externalSetShowModal || setInternalShowModal;
 
   return (
     <>
-      {renderButton && <CreateButton onClick={() => setShowModal(true)} />}
+      {renderButton && <CreateButton onClick={() => setShowModal(true)} buttonText="+ New Job" className={buttonClassName}/>}
       {showModal && (
-        <CreateModal
+        <CreateProjectModal
           submitting={submitting}
           onClose={() => setShowModal(false)}
           onCreate={onCreate}

@@ -6,10 +6,11 @@ import {
   getDocs,
   doc,
   getDoc,
-  updateDoc,
   deleteDoc,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { updateEmployeeDetail } from "../lib/firestore-helpers";
+import { useAuth } from "../context/AuthContext";
 import { NavigationBar } from "../components/NavigationBar";
 import { notionClasses } from "@/lib/notion-theme";
 import {
@@ -400,7 +401,7 @@ function EmployeeCard({
 
   return (
     <div
-      className={`${notionClasses.card} flex items-center justify-between gap-4`}
+      className={`${notionClasses.card} flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4`}
     >
       {/* Clickable avatar + info */}
       <button
@@ -434,7 +435,7 @@ function EmployeeCard({
       </button>
 
       {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         {variant === "pending" && (
           <>
             <button
@@ -525,10 +526,13 @@ export default function EmployeeManagement() {
   const [confirmAction, setConfirmAction] = useState(null); // { type, emp }
   const [authVerified, setAuthVerified] = useState(false);
 
-  const businessId = localStorage.getItem("ccgBusinessId");
-  const userRole = localStorage.getItem("ccgUserRole");
+  const { businessId, role: userRole, loading: authLoading } = useAuth();
 
   useEffect(() => {
+    // Wait for auth/claims to resolve before making routing decisions, so we
+    // never bounce an owner out before their role claim has loaded.
+    if (authLoading) return;
+
     if (userRole !== "owner") {
       navigate("/Home", { replace: true });
       return;
@@ -557,7 +561,7 @@ export default function EmployeeManagement() {
     });
 
     return () => unsubscribe();
-  }, [businessId, userRole, navigate]);
+  }, [authLoading, businessId, userRole, navigate]);
 
   const fetchEmployees = async () => {
     if (!businessId) return;
@@ -591,36 +595,30 @@ export default function EmployeeManagement() {
 
   const handleApprove = async (uid) => {
     setActionLoading(uid);
-    try {
-      await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        status: "active",
-      });
+    const success = await updateEmployeeDetail(businessId, uid, {status: "active"});
+    if (success) {
       setEmployees((prev) =>
         prev.map((e) => (e.id === uid ? { ...e, status: "active" } : e)),
       );
-    } catch (err) {
-      setError("Failed to approve employee.");
-      console.error(err);
-    } finally {
-      setActionLoading(null);
     }
+    else {
+      setError("Failed to approve employee.");
+    }
+    setActionLoading(null);
   };
 
   const handleDecline = async (uid) => {
     setActionLoading(uid);
-    try {
-      await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        status: "rejected",
-      });
+    const success = await updateEmployeeDetail(businessId, uid, {status: "rejected"});
+    if (success) {
       setEmployees((prev) =>
         prev.map((e) => (e.id === uid ? { ...e, status: "rejected" } : e)),
       );
-    } catch (err) {
-      setError("Failed to decline employee.");
-      console.error(err);
-    } finally {
-      setActionLoading(null);
     }
+    else {
+      setError("Failed to decline employee.");
+    }
+    setActionLoading(null);
   };
 
   const handleRemove = async (uid) => {
@@ -644,18 +642,17 @@ export default function EmployeeManagement() {
     }
     setSavingEdit(true);
     try {
-      await updateDoc(doc(db, "businesses", businessId, "Employees", uid), {
-        status: newStatus,
-        role: newRole,
-      });
-      setEmployees((prev) =>
-        prev.map((e) => (e.id === uid ? { ...e, status: newStatus, role: newRole } : e)),
-      );
-      setEditingEmployee(null);
-    } catch (err) {
-      setError("Failed to update employee.");
-      console.error(err);
-    } finally {
+      const success = await updateEmployeeDetail(businessId, uid, {status: newStatus, role: newRole});
+      if (success) {
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === uid ? { ...e, status: newStatus, role: newRole } : e)),
+        );
+      }
+      else {
+        setError("Failed to update employee.");
+      }
+    }
+    finally {
       setSavingEdit(false);
     }
   };

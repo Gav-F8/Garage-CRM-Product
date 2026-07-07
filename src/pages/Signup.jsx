@@ -48,8 +48,8 @@ export default function SignupPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password should be at least 6 characters.');
+    if (password.length < 8) {
+      setError('Password should be at least 8 characters.');
       setLoading(false);
       return;
     }
@@ -77,6 +77,9 @@ export default function SignupPage() {
       if (role === 'business') {
         const generatedJoinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+        // Creating this business document triggers the onBusinessCreated Cloud
+        // Function, which sets this user's { role: "owner", businessId } custom
+        // claim. The claim is read on the client via AuthContext after login.
         const businessRef = doc(collection(db, "businesses"));
         await setDoc(businessRef, {
           uid: user.uid,
@@ -135,7 +138,7 @@ export default function SignupPage() {
       if (err.code === 'auth/email-already-in-use') {
         setError('Email is already in use.');
       } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters.');
+        setError('Password should be at least 8 characters.');
       } else {
         setError('Failed to create account. Please try again.');
       }

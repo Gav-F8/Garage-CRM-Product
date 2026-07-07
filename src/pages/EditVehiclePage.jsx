@@ -4,31 +4,27 @@ import { notionClasses } from "/src/lib/notion-theme";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { VEHICLE_TYPES, NHTSA, } from "/src/lib/utils.js";
 import { useCustomersForCurrentUser } from "/src/hooks/useCustomersForCurrentUser.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
 import { db } from "/src/firebase";
 import {
   doc,
   getDoc,
-  getDocs,
   updateDoc,
   deleteDoc,
-  collection,
-  query,
-  orderBy,
   serverTimestamp,
 } from "firebase/firestore";
 
-export default function EditCarPage() {
+export default function EditVehiclePage() {
   // Route navigation.
-  const { storageId } = useParams();
+  const { vehicleId: vehicleId } = useParams();
   const navigate = useNavigate();
 
-  // Context from persisted business/session state.
-  const businessId = localStorage.getItem("ccgBusinessId");
-  const userRole = localStorage.getItem("ccgUserRole");
+  // Identity/role come from the global auth context (custom claims).
+  const { businessId, role: userRole, loading: authLoading } = useAuth();
 
   // Editable form and request state.
   const [formData, setFormData] = useState({
-    carLabel: "",
+    vehicleLabel: "",
     make: "",
     model: "",
     year: "",
@@ -48,7 +44,8 @@ export default function EditCarPage() {
 
   // Loads vehicle fields for the edit form.
   useEffect(() => {
-    async function loadStorage() {
+    if (authLoading) return;
+    async function loadVehicle() {
       if (!businessId) {
         setError("No business context found. Please sign in again.");
         setLoading(false);
@@ -56,7 +53,7 @@ export default function EditCarPage() {
       }
 
       try {
-        const ref = doc(db, "businesses", businessId, "storage", storageId);
+        const ref = doc(db, "businesses", businessId, "Vehicles", vehicleId);
         const snap = await getDoc(ref);
         if (!snap.exists()) {
           setError("Vehicle not found.");
@@ -65,7 +62,7 @@ export default function EditCarPage() {
         }
         const d = snap.data();
         setFormData({
-          carLabel: d.carLabel || "",
+          vehicleLabel: d.vehicleLabel || "",
           make: d.make || "",
           model: d.model || "",
           year: d.year || "",
@@ -87,8 +84,8 @@ export default function EditCarPage() {
       }
     }
 
-    loadStorage();
-  }, [businessId, storageId]);
+    loadVehicle();
+  }, [authLoading, businessId, vehicleId]);
 
   // Generic input handler for controlled fields.
   function handleChange(e) {
@@ -103,9 +100,9 @@ export default function EditCarPage() {
     setError("");
 
     try {
-      const ref = doc(db, "businesses", businessId, "storage", storageId);
+      const ref = doc(db, "businesses", businessId, "Vehicles", vehicleId);
       await updateDoc(ref, { ...formData, updatedAt: serverTimestamp() });
-      navigate(`/storage/${storageId}`);
+      navigate(`/vehicles/${vehicleId}`);
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to save vehicle.");
@@ -122,9 +119,9 @@ export default function EditCarPage() {
     if (!confirmed) return;
 
     try {
-      const ref = doc(db, "businesses", businessId, "storage", storageId);
+      const ref = doc(db, "businesses", businessId, "Vehicles", vehicleId);
       await deleteDoc(ref);
-      navigate("/storage");
+      navigate("/Vehicles");
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to delete vehicle.");
@@ -150,7 +147,7 @@ export default function EditCarPage() {
         <div className={notionClasses.dashboardContainer}>
           <p className="text-sm text-[#C53030]">{error}</p>
           <button
-            onClick={() => navigate(`/storage/${storageId}`)}
+            onClick={() => navigate(`/vehicles/${vehicleId}`)}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
             Back
@@ -176,11 +173,11 @@ export default function EditCarPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <label className="text-sm font-medium text-[#37352F]">
-                Car Label
+                Vehicle Label
               </label>
               <input
-                name="carLabel"
-                value={formData.carLabel}
+                name="vehicleLabel"
+                value={formData.vehicleLabel}
                 onChange={handleChange}
                 className={notionClasses.input}
               />
@@ -344,7 +341,7 @@ export default function EditCarPage() {
 
               <button
                 type="button"
-                onClick={() => navigate(`/storage/${storageId}`)}
+                onClick={() => navigate(`/vehicles/${vehicleId}`)}
                 className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
               >
                 Cancel

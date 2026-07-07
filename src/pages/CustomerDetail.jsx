@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auth } from "/src/firebase.js";
 import {
   fetchCustomerDetail,
   fetchTotalTimeLogsCustomer,
@@ -9,11 +8,14 @@ import {
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
+import { ChevronRight } from "lucide-react";
 
 export default function CustomerDetailPage() {
   // Route and page-level state.
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const { role, businessId, user, loading: authLoading } = useAuth();
   const [customer, setCustomer] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,41 +25,46 @@ export default function CustomerDetailPage() {
     minutes: 0,
   });
 
-  // Loads customer data and related project statistics after auth resolves.
+  // Loads customer data and related project statistics once auth/claims resolve.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (!businessId) {
+      navigate("/Login");
+      setLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    (async () => {
       try {
-        const bizId = localStorage.getItem("ccgBusinessId");
-        if (!bizId) {
-          navigate("/Login");
-          setLoading(false);
-          return;
-        }
-
-        const customerData = await fetchCustomerDetail(bizId, customerId);
+        const customerData = await fetchCustomerDetail(businessId, customerId);
+        if (cancelled) return;
         setCustomer(customerData);
 
         if (customerData) {
-          const projects = await fetchRelatedProjectsByCustomer(bizId, customerId);
+          const projects = await fetchRelatedProjectsByCustomer(businessId, customerId);
+          if (cancelled) return;
           setRelatedProjects(projects);
 
-          const logs = await fetchTotalTimeLogsCustomer(bizId, customerId);
+          const logs = await fetchTotalTimeLogsCustomer(businessId, customerId);
+          if (cancelled) return;
           setTimeLogs(logs);
         }
       } catch (error) {
         console.error("Error loading customer detail:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    });
+    })();
 
-    return () => unsubscribe();
-  }, [customerId, navigate]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId, customerId, navigate]);
 
   // Loading and empty states.
   if (loading) {
@@ -78,7 +85,7 @@ export default function CustomerDetailPage() {
         <div className={notionClasses.dashboardContainer}>
           <p className="text-sm text-[#C53030]">Customer not found</p>
           <button
-            onClick={() => navigate("/Customer")}
+            onClick={() => navigate("/customers")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
             Back to Customers
@@ -93,7 +100,7 @@ export default function CustomerDetailPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-6 gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div>
             <h1 className={notionClasses.header.title}>{customer.name}</h1>
             <p className={notionClasses.header.subtitle}>Customer Details</p>
@@ -101,15 +108,15 @@ export default function CustomerDetailPage() {
 
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => navigate("/Customer")}
+              onClick={() => navigate("/customers")}
               className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
             >
               ← Back to Customers
             </button>
 
-            {localStorage.getItem("ccgUserRole") === "owner" && (
+            {role === "owner" && (
               <button
-                onClick={() => navigate(`/customer/${customerId}/edit`)}
+                onClick={() => navigate(`/customers/${customerId}/edit`)}
                 className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
               >
                 Edit
@@ -244,7 +251,7 @@ export default function CustomerDetailPage() {
               No projects related to this customer.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E0E0E0]">
+            <div className="hidden sm:block overflow-x-auto rounded-lg border border-[#E0E0E0]">
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-[#F7F6F3]">
@@ -299,6 +306,40 @@ export default function CustomerDetailPage() {
                   )})}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {relatedProjects.length > 0 && (
+            <div className="sm:hidden mt-0 divide-y divide-[#E0E0E0] rounded-lg border border-[#E0E0E0] overflow-hidden">
+              {relatedProjects.map((project) => {
+                const { label, style } = statusStyle(project.status);
+                return (
+                  <div
+                    key={project.id}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                    className="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-blue-50 active:bg-blue-100"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-[#37352F] truncate">
+                          {project.title || "-"}
+                        </span>
+                        <span
+                          className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style}`}
+                        >
+                          {label || "-"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#787774]">
+                        {project.createdAt
+                          ? new Date(project.createdAt.toDate()).toLocaleDateString()
+                          : "-"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[#9B9A97]" />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { auth, db } from "../firebase";
+import { auth, db } from "../firebase.js";
 import {
   addDoc,
   collection,
@@ -13,12 +13,26 @@ import {
   query,
   serverTimestamp,
   Timestamp,
-  updateDoc,
 } from "firebase/firestore";
+import {
+  formatTimestamp,
+  formatWorkDate,
+  formatTotalMinutes,
+  formatTimer,
+  updateProjectTimelogValue,
+  createProjectTimelog,
+  createProjectNotes,
+} from "../lib/firestore-helpers.js";
 import { useTimerPersistence } from "/src/hooks/useTimerPersistance.js";
 import { statusStyle } from "/src/lib/utils.js";
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
+import { useAuth } from "/src/context/AuthContext.jsx";
+
+// Genuinly dont know if or how any of this works, lowkey wil figure it out eventually tho
+// schizo code
+// dissocioiative code
+// worst code ive ever not written
 
 export default function ProjectDetailsPage() {
   // Route navigation and identifier.
@@ -37,6 +51,8 @@ export default function ProjectDetailsPage() {
   
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [timerNote, setTimerNote] = useState("");
+  const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
   
   const [newMinutes, setNewMinutes] = useState("");
   const [newLogNote, setNewLogNote] = useState("");
@@ -48,15 +64,22 @@ export default function ProjectDetailsPage() {
   const [editLogNote, setEditLogNote] = useState("");
   const [editWorkDate, setEditWorkDate] = useState("");
   
-  const { timerSeconds, setTimerSeconds, isTimerRunning, setIsTimerRunning, clearTimer, resetTimer } = useTimerPersistence(projectId);
-  const [isActive, setIsActive] = useState(false);
-  const [timerNote, setTimerNote] = useState("");
-  const [savingStopwatchLog, setSavingStopwatchLog] = useState(false);
-  const intervalRef = useRef(null);
-  const isMountedRef = useRef(true);
   const notesUnsubscribeRef = useRef(null);
   const timeLogsUnsubscribeRef = useRef(null);
-  const businessId = localStorage.getItem("ccgBusinessId");
+  const { businessId } = useAuth();
+
+  const { 
+    timerSeconds,
+    isActive,
+    isLoading: timerLoading,
+    error: timerError,
+    startTimer,
+    pauseTimer,
+    resumeTimer,
+    resetTimer,
+    submitTimer,
+  } = useTimerPersistence(projectId, businessId);
+  console.log("📱 ProjectDetails received from hook:", { timerSeconds, isActive });
 
   // Sets up real-time listener for Notes, sorted by newest first
   function setupNotesListener() {
@@ -215,6 +238,7 @@ export default function ProjectDetailsPage() {
           "Employees",
           currentUid,
         );
+        
         const employeeSnap = await getDoc(employeeRef);
 
         if (!employeeSnap.exists()) {
@@ -241,19 +265,14 @@ export default function ProjectDetailsPage() {
         }
 
         const projectData = { id: projectSnap.id, ...projectSnap.data() };
-        
-        const projectIsActive = projectData.isActive === true;
-        setIsActive(projectIsActive);
-        setIsTimerRunning(projectIsActive);
-
         setProject(projectData);
-        if (projectData.carId) {
+        if (projectData.vehicleId) {
           const carRef = doc(
             db,
             "businesses",
             businessId,
-            "storage",
-            projectData.carId,
+            "Vehicles",
+            projectData.vehicleId,
           );
 
           const carSnap = await getDoc(carRef);
@@ -282,90 +301,6 @@ export default function ProjectDetailsPage() {
 
   // If timer running set active state to true else false.
   // Mirrors timer state into local isActive state.
-  useEffect(() => {
-    setIsActive(isTimerRunning);
-  }, [isTimerRunning]);
-
-  // Persists active/inactive timer state to project document.
-  useEffect(() => {
-    async function syncProjectActiveState() {
-      if (!businessId || !projectId || !project) return;
-      if (project.isActive === isTimerRunning) return;
-
-      try {
-        const projectRef = doc(
-          db,
-          "businesses",
-          businessId,
-          "Projects",
-          projectId,
-        );
-        await updateDoc(projectRef, {
-          isActive: isTimerRunning,
-          updatedAt: serverTimestamp(),
-        });
-
-        setProject((prev) =>
-          prev
-            ? { ...prev, isActive: isTimerRunning, updatedAt: Timestamp.now() }
-            : prev,
-        );
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    syncProjectActiveState();
-  }, [businessId, projectId, project, isTimerRunning]);
-
-  // Drives the 1-second stopwatch tick loop.
-  useEffect(() => {
-    if (isTimerRunning) {
-      intervalRef.current = setInterval(() => {
-        setTimerSeconds((prev) => prev + 1);
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [isTimerRunning]);
-
-
-  // Stops Timer if running
-  // Runs cleanup on unmount, if project is still active, set it to inactive to prevent orphaned active projects.
-  useEffect(() => {
-      return () => {
-        isMountedRef.current = false;
-        if (projectId && businessId && project) {
-          try {
-            const projectRef = doc(
-              db,
-              "businesses",
-              businessId,
-              "Projects",
-              projectId
-            );
-            updateDoc(projectRef, {
-              isActive: false,
-              updatedAt: serverTimestamp(),
-            }).catch(err => console.error("Failed to update project on unmount", err));
-          } catch (err) {
-            console.error("Error in unmount cleanup", err);
-          }
-        }
-      };
-    }, []); // Empty dependency array ensures this runs only on unmount
-
-  // Sets isMountedRef to true when component mounts.
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   // Adds a project note authored by the current employee.
   async function handleAddNote() {
@@ -382,27 +317,22 @@ export default function ProjectDetailsPage() {
     setError("");
 
     try {
-      const notesRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "Notes",
-      );
-
-      await addDoc(notesRef, {
+      const success = await createProjectNotes(businessId, projectId, {
         text: trimmedNote,
         createdByUid: currentUid,
         createdByEmployeeName: currentEmployee?.Name || "Unknown",
         createdAt: serverTimestamp(),
       });
 
-      setNewNote("");
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to add note.");
-    } finally {
+      if (success) {
+        setNewNote("");
+      }
+
+      else {
+        setError(err.message || "Failed to add note.");
+      }
+    } 
+    finally {
       setAddingNote(false);
     }
   }
@@ -429,31 +359,25 @@ export default function ProjectDetailsPage() {
     setError("");
 
     try {
-      const logsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "TimeLogs",
-      );
-
-      await addDoc(logsRef, {
+      const success = await createProjectTimelog(businessId, projectId, {
         EmployeeName: currentEmployee?.Name || "Unknown",
         Uid: currentUid,
         minutes: Number(newMinutes),
         note: newLogNote.trim() || "",
         workDate: Timestamp.fromDate(new Date(`${newWorkDate}T00:00:00`)),
         createdAt: serverTimestamp(),
-      });
-
-      setNewMinutes("");
-      setNewLogNote("");
-      setNewWorkDate("");
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to add time log.");
-    } finally {
+      })
+      
+      if (success) {
+        setNewMinutes("");
+        setNewLogNote("");
+        setNewWorkDate("");
+      }
+      else {
+        setError("Failed to add time log.");
+      }
+    }
+    finally {
       setSavingTimeLog(false);
     }
   }
@@ -476,20 +400,11 @@ export default function ProjectDetailsPage() {
     setSavingStopwatchLog(true);
     setError("");
 
-    try {
-      const logsRef = collection(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "TimeLogs",
-      );
-
+    try{
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
-      await addDoc(logsRef, {
+  
+      const success = await createProjectTimelog(businessId, projectId, {
         EmployeeName: currentEmployee?.Name || "Unknown",
         Uid: currentUid,
         minutes: totalMinutes,
@@ -497,15 +412,17 @@ export default function ProjectDetailsPage() {
         workDate: Timestamp.fromDate(today),
         createdAt: serverTimestamp(),
       });
-
-      setTimerSeconds(0);
-      setTimerNote("");
-      setIsTimerRunning(false);
-      clearTimer(); // Clear localStorage after successful submission
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Failed to submit stopwatch time log.");
-    } finally {
+  
+      if (success) {
+        setTimerNote("");
+        submitTimer(); // Clear localStorage after successful submission
+      }
+  
+      else {
+        setError(err.message || "Failed to submit stopwatch time log.");
+      }
+    }
+    finally {
       setSavingStopwatchLog(false);
     }
   }
@@ -565,64 +482,24 @@ export default function ProjectDetailsPage() {
       return;
     }
 
-    try {
-      const logRef = doc(
-        db,
-        "businesses",
-        businessId,
-        "Projects",
-        projectId,
-        "TimeLogs",
-        logId,
-      );
+    const success = await updateProjectTimelogValue(businessId, projectId, logId, {
+      minutes: Number(editMinutes),
+      note: editLogNote.trim() || "",
+      workDate: Timestamp.fromDate(new Date(`${editWorkDate}T00:00:00`)),
+    });
 
-      await updateDoc(logRef, {
-        minutes: Number(editMinutes),
-        note: editLogNote.trim() || "",
-        workDate: Timestamp.fromDate(new Date(`${editWorkDate}T00:00:00`)),
-      });
-
+    if (success) {
       cancelEditingLog();
-    } catch (err) {
+    }
+
+    else {
       console.error(err);
       setError(err.message || "Failed to update time log.");
     }
   }
 
-  // Formatting helpers used across the details and logs UI.
-  function formatTimestamp(timestamp) {
-    if (!timestamp) return "-";
-    if (timestamp.toDate) return timestamp.toDate().toLocaleString();
-    return String(timestamp);
-  }
-
-  function formatWorkDate(timestamp) {
-    if (!timestamp) return "-";
-    if (timestamp.toDate) return timestamp.toDate().toLocaleDateString();
-    return String(timestamp);
-  }
-
   function getTotalMinutes() {
     return timeLogs.reduce((sum, log) => sum + (Number(log.minutes) || 0), 0);
-  }
-
-  function formatTotalMinutes(totalMinutes) {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-
-    if (hours === 0) return `${minutes} min`;
-    if (minutes === 0) return `${hours}h`;
-    return `${hours}h ${minutes}m`;
-  }
-
-  function formatTimer(seconds) {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-
-    return [hrs, mins, secs]
-      .map((value) => String(value).padStart(2, "0"))
-      .join(":");
   }
 
   const isOwner = currentEmployee?.role === "owner";
@@ -631,10 +508,6 @@ export default function ProjectDetailsPage() {
     const currentUid = auth.currentUser?.uid;
     if (!currentUid) return false;
     return isOwner || log.Uid === currentUid;
-  }
-
-  function isActiveProject(project) {
-    return project.isActive === true;
   }
 
   // Main page render with loading/error/empty branches.
@@ -651,19 +524,19 @@ export default function ProjectDetailsPage() {
           <p className="text-sm text-[#787774]">No project data found.</p>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
               <div>
                 <h1 className={notionClasses.header.title}>
                   {project.title || "Untitled Project"}
                 </h1>
                 <p className={notionClasses.header.subtitle}>
-                  {project.customerName || "-"} • {project.carLabel || "-"}
+                  {project.customerName || "-"} • {project.vehicleLabel || "-"}
                 </p>
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
                 <button
-                  onClick={() => navigate("/jobs")}
+                  onClick={() => navigate("/projects")}
                   className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
                 >
                   ← Back to Jobs
@@ -690,7 +563,7 @@ export default function ProjectDetailsPage() {
                     <span className="text-[#787774]">
                       {project.customerId ? (
                         <Link
-                          to={`/Customer/${project.customerId}`}
+                          to={`/customers/${project.customerId}`}
                           className="text-[#2F6FED] hover:underline font-medium"
                         >
                           {project.customerName || "-"}
@@ -704,15 +577,15 @@ export default function ProjectDetailsPage() {
                   <div className="flex justify-between gap-4 py-4">
                     <span className="font-medium text-[#37352F]">Car</span>
                     <span className="text-[#787774]">
-                      {project.carId ? (
+                      {project.vehicleId ? (
                         <Link
-                          to={`/storage/${project.carId}`}
+                          to={`/vehicles/${project.vehicleId}`}
                           className="text-[#2F6FED] hover:underline font-medium"
                         >
-                          {project.carLabel || "-"}
+                          {project.vehicleLabel || "-"}
                         </Link>
                       ) : (
-                        project.carLabel || "-"
+                        project.vehicleLabel || "-"
                       )}
                     </span>
                   </div>
@@ -730,15 +603,6 @@ export default function ProjectDetailsPage() {
                     <span className="font-medium text-[#37352F]">VIN</span>
                     <span className="text-[#787774]">
                       {carDetails?.vin || "-"}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between gap-4 py-4">
-                    <span className="font-medium text-[#37352F]">
-                      Description
-                    </span>
-                    <span className="text-[#787774] text-right max-w-[60%] break-words whitespace-pre-wrap">
-                      {project.description ?? "-"}
                     </span>
                   </div>
 
@@ -803,8 +667,34 @@ export default function ProjectDetailsPage() {
 
               <div className="rounded-xl border border-[#E0E0E0] bg-white shadow-sm p-6">
                 <h2 className="text-lg font-semibold text-[#37352F] mb-5">
-                  Notes
+                  Description
                 </h2>
+
+                <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                  {notes.length ? (
+                    notes.map((note) => (
+                      <div
+                        key={project.description}
+                        className="rounded-lg border border-[#E0E0E0] bg-[#FAFAF9] p-4"
+                      >
+                        <p className="text-sm text-[#37352F] mb-3 break-words whitespace-pre-wrap">
+                          {project.description || "No description available"}
+                        </p>
+                        <div className="flex flex-col gap-1 text-xs text-[#787774]">
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-[#787774]">
+                      No description available for this job.
+                    </p>
+                  )}
+                </div>
+                
+              <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
+                <h3 className="text-sm font-semibold text-[#37352F] mb-3">
+                  Notes
+                </h3>
 
                 <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
                   {notes.length ? (
@@ -838,6 +728,7 @@ export default function ProjectDetailsPage() {
                     </p>
                   )}
                 </div>
+              </div>
 
                 <div className="mt-6 pt-5 border-t border-[#F0F0F0]">
                   <h3 className="text-sm font-semibold text-[#37352F] mb-3">
@@ -951,7 +842,6 @@ export default function ProjectDetailsPage() {
                                 </span>
                               ) : null}
                             </div>
-
                             {canManageLog(log) && (
                               <div className="flex gap-2">
                                 <button
@@ -988,39 +878,36 @@ export default function ProjectDetailsPage() {
                     </p>
 
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {!isTimerRunning && timerSeconds === 0 && (
+                      {!isActive && timerSeconds === 0 && (
                         <button
-                          onClick={() => setIsTimerRunning(true)}
-                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                          onClick={startTimer}
+                          className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium transition-all"
                         >
                           Start
                         </button>
                       )}
 
-                      {isTimerRunning && (
+                      {isActive && (
                         <button
-                          onClick={() => setIsTimerRunning(false)}
-                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                          onClick={pauseTimer}
+                          className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium transition-all"
                         >
                           Pause
                         </button>
                       )}
 
-                      {!isTimerRunning && timerSeconds > 0 && (
+                      {!isActive && timerSeconds > 0 && (
                         <button
-                          onClick={() => setIsTimerRunning(true)}
-                          className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                          onClick={resumeTimer}
+                          className="h-9 px-3 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium transition-all"
                         >
                           Resume
                         </button>
                       )}
 
                       <button
-                        onClick={() => {
-                          resetTimer();
-                          setTimerNote("");
-                        }}
-                        className="h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
+                        onClick={resetTimer}
+                        className="h-9 px-3 rounded-lg bg-[#E0E0E0] hover:bg-[#D0D0D0] text-[#37352F] text-sm font-medium transition-all"
                       >
                         Reset
                       </button>

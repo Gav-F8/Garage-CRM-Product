@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Firebase emulator / CLI artifacts
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
+# Service-account keys must never be committed
+serviceAccount*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -5,8 +5,8 @@
 // {
 //   assignedMechanicId:      string          // required
 //   assignedMechanicName:    string | null
-//   carId:                   string | null
-//   carLabel:                string | null
+//   vehicleId:                   string | null
+//   vehicleLabel:                string | null
 //   createdAt:               Timestamp       // serverTimestamp()
 //   createdByEmployeeId:     string          // required
 //   createdByEmployeeName:   string          // required
@@ -31,18 +31,20 @@ import {
   serverTimestamp,
   where,
 } from "firebase/firestore";
-import { 
-  fetchBusinessId,
+import {
   fetchCustomers,
-  fetchEmployeeName,
   fetchMechanics,
-  fetchStorage,
+  fetchVehicles,
+  fetchEmployeeDetail,
+  createProject,
+  extractName,
 } from "../lib/firestore-helpers";
+import { useAuth } from "../context/AuthContext";
 import { useProjectsForCurrentUser } from "../hooks/useProjectsForCurrentUser";
 import { STATUS_OPTIONS } from "../lib/utils.js";
 import { notionClasses } from "../lib/notion-theme";
 import { NavigationBar } from "../components/NavigationBar";
-import { CreateJobFlow } from "../components/CreateJobModal.jsx";
+import { CreateProjectFlow } from "../components/CreateProjectModal.jsx";
 import ProjectsList from "../components/ProjectsList";
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -50,8 +52,7 @@ import ProjectsList from "../components/ProjectsList";
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function ProjectPage() {
-  const location = useState();
-  const [businessId, setBusinessId] = useState(null);
+  const { businessId, user, loading: authLoading } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [mechanics, setMechanics] = useState([]);
@@ -72,39 +73,33 @@ export default function ProjectPage() {
   // Fetch necessary data for job creation form (customers, vehicles, mechanics)
   // ══════════════════════════════════════════════════════════════════════════════
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        setCreationDataLoading(false);
-        return;
-      }
+    if (authLoading) return;
+    if (!user || !businessId) {
+      setCreationDataLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    (async () => {
       try {
-        const bizId =
-          (await fetchBusinessId(user.uid)) ||
-          localStorage.getItem("ccgBusinessId");
-        setBusinessId(bizId);
-
-        if (!bizId) {
-          setCreationDataLoading(false);
-          return;
-        }
-
         const [customerList, vehicleList, mechanicList] = await Promise.all([
-          fetchCustomers(bizId),
-          fetchStorage(bizId),
-          fetchMechanics(bizId),
+          fetchCustomers(businessId),
+          fetchVehicles(businessId),
+          fetchMechanics(businessId),
         ]);
-
+        if (cancelled) return;
         setCustomers(customerList);
         setVehicles(vehicleList);
         setMechanics(mechanicList);
       } finally {
-        setCreationDataLoading(false);
+        if (!cancelled) setCreationDataLoading(false);
       }
-    });
+    })();
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId]);
 
   const handleJobSubmit = async (payload) => {
     setSubmitting(true);
@@ -121,16 +116,17 @@ export default function ProjectPage() {
         throw new Error("No authenticated user found.");
       }
 
-      const createdByEmployeeName = await fetchEmployeeName(
-        businessId,
-        currentUser.uid,
-      );
+      const createdByEmployeeName = extractName(
+        await fetchEmployeeDetail(
+          businessId,
+          currentUser.uid
+        ), "Name");
 
       const selectedCustomer = customers.find(
         (customer) => customer.id === payload.customerId,
       );
       const selectedVehicle = vehicles.find(
-        (vehicle) => vehicle.id === payload.carId,
+        (vehicle) => vehicle.id === payload.vehicleId,
       );
       const selectedMechanics = mechanics.filter((mechanic) =>
         payload.assignedMechanicIds.includes(mechanic.id),
@@ -140,7 +136,7 @@ export default function ProjectPage() {
         .map((mechanic) => mechanic.name)
         .filter(Boolean);
 
-      const carLabel = [
+      const vehicleLabel = [
         selectedVehicle?.year,
         selectedVehicle?.make,
         selectedVehicle?.model,
@@ -153,8 +149,8 @@ export default function ProjectPage() {
         customerId: payload.customerId,
         customerName: selectedCustomer?.name || null,
         description: payload.description || null,
-        carId: payload.carId,
-        carLabel: carLabel || null,
+        vehicleId: payload.vehicleId,
+        vehicleLabel: vehicleLabel || null,
         status: payload.status,
 
         // keep legacy field for compatibility where needed
@@ -174,10 +170,7 @@ export default function ProjectPage() {
         lastNoteText: null,
       };
 
-      const jobRef = await addDoc(
-        collection(db, "businesses", businessId, "Projects"),
-        jobData,
-      );
+      const jobRef = await createProject(businessId, jobData);
 
       return jobRef.id;
     } catch (creationError) {
@@ -196,7 +189,7 @@ export default function ProjectPage() {
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
             <h1 className={notionClasses.header.title}>Jobs</h1>
             <p className={notionClasses.header.subtitle}>
@@ -206,7 +199,11 @@ export default function ProjectPage() {
 
           {/* Create Job Button */}
           {!creationDataLoading && (
-            <CreateJobFlow submitting={submitting} onCreate={handleJobSubmit} />
+            <CreateProjectFlow
+              submitting={submitting}
+              onCreate={handleJobSubmit}
+              buttonClassName="w-full sm:w-auto"
+            />
           )}
         </div>
 
@@ -241,7 +238,7 @@ export default function ProjectPage() {
           <div className="text-center py-16 border border-dashed border-[#E0E0E0] rounded-xl bg-white shadow-sm">
             <p className="text-sm text-[#787774] mb-4">No Jobs found.</p>
             {!creationDataLoading && (
-              <CreateJobFlow submitting={submitting} onCreate={handleJobSubmit} />
+              <CreateProjectFlow submitting={submitting} onCreate={handleJobSubmit} />
             )}
           </div>
         )}

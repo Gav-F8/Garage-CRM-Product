@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auth, db } from "/src/firebase.js";
-import { getDoc, doc, getDocs, collection, query, where } from "firebase/firestore";
 import {
-  fetchCustomerName,
+  extractName,
+  fetchCustomerDetail,
   fetchTotalTimeLogsVehicle,
   fetchVehicleDetail,
   fetchRelatedProjectsByVehicle
@@ -11,12 +10,15 @@ import {
 import { NavigationBar } from "/src/components/NavigationBar";
 import { notionClasses } from "/src/lib/notion-theme";
 import { statusStyle } from "/src/lib/utils.js";
+import { useAuth } from "/src/context/AuthContext.jsx";
+import { ChevronRight } from "lucide-react";
 
-export default function StorageDetailPage() {
+export default function VehicleDetailPage() {
   // Route and page-level state.
-  const { storageId } = useParams();
+  const { vehicleId } = useParams();
   const navigate = useNavigate();
-  const [storage, setStorage] = useState(null);
+  const { businessId, user, loading: authLoading } = useAuth();
+  const [vehicle, setVehicle] = useState(null);
   const [customerName, setCustomerName] = useState(null);
   const [relatedProjects, setRelatedProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,51 +28,56 @@ export default function StorageDetailPage() {
     minutes: 0,
   });
 
-  // Allow access to storage details for mechanics and other roles.
+  // Allow access to vehicle details for mechanics and other roles.
 
   // Loads vehicle, linked customer, related projects, and total hours.
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    if (!businessId) {
+      setLoading(false);
+      return;
+    }
 
+    let cancelled = false;
+    setLoading(true);
+    (async () => {
       try {
-        const bizId = localStorage.getItem("ccgBusinessId");
-        if (!bizId) {
-          setLoading(false);
-          return;
-        }
+        const vehicleData = await fetchVehicleDetail(businessId, vehicleId);
+        if (cancelled) return;
+        setVehicle(vehicleData);
 
-        // Fetch storage detail
-        const storageData = await fetchVehicleDetail(bizId, storageId);
-        setStorage(storageData);
-
-        if (storageData) {
-          // Fetch customer name
-          if (storageData.customerId) {
-            const name = await fetchCustomerName(bizId, storageData.customerId);
+        if (vehicleData) {
+          if (vehicleData.customerId) {
+            const name = extractName(
+              await fetchCustomerDetail(businessId, vehicleData.customerId),
+            );
+            if (cancelled) return;
             setCustomerName(name);
           }
 
-          // Fetch related projects
-          const projects = await fetchRelatedProjectsByVehicle(bizId, storageId);
+          const projects = await fetchRelatedProjectsByVehicle(businessId, vehicleId);
+          if (cancelled) return;
           setRelatedProjects(projects);
 
-          // Fetch total time logs
-          const logs = await fetchTotalTimeLogsVehicle(bizId, storageId);
+          const logs = await fetchTotalTimeLogsVehicle(businessId, vehicleId);
+          if (cancelled) return;
           setTimeLogs(logs);
         }
       } catch (error) {
-        console.error("Error loading storage detail:", error);
+        console.error("Error loading vehicle detail:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    });
+    })();
 
-    return () => unsubscribe();
-  }, [storageId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, businessId, vehicleId]);
 
   // Loading and empty states.
   if (loading) {
@@ -78,23 +85,23 @@ export default function StorageDetailPage() {
       <div className={notionClasses.pageContainer}>
         <NavigationBar />
         <div className={notionClasses.dashboardContainer}>
-          <p className="text-sm text-[#787774]">Loading storage details...</p>
+          <p className="text-sm text-[#787774]">Loading vehicle details...</p>
         </div>
       </div>
     );
   }
 
-  if (!storage) {
+  if (!vehicle) {
     return (
       <div className={notionClasses.pageContainer}>
         <NavigationBar />
         <div className={notionClasses.dashboardContainer}>
-          <p className="text-sm text-[#C53030]">Storage not found</p>
+          <p className="text-sm text-[#C53030]">Vehicle not found</p>
           <button
-            onClick={() => navigate("/Storage")}
+            onClick={() => navigate("/vehicles")}
             className="mt-4 h-10 px-4 rounded-lg bg-[#37352F] hover:bg-[#474540] text-white text-sm font-medium"
           >
-            Back to Storage
+            Back to Vehicles
           </button>
         </div>
       </div>
@@ -106,25 +113,25 @@ export default function StorageDetailPage() {
     <div className={notionClasses.pageContainer}>
       <NavigationBar />
       <div className={notionClasses.dashboardContainer}>
-        <div className="flex items-center justify-between mb-6 gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div>
             <h1 className={notionClasses.header.title}>
-              {storage.carLabel ||
-                `${storage.year} ${storage.make} ${storage.model}`}
+              {vehicle.vehicleLabel ||
+                `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
             </h1>
-            <p className={notionClasses.header.subtitle}>{storage.plate}</p>
+            <p className={notionClasses.header.subtitle}>{vehicle.plate}</p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={() => navigate("/Storage")}
+              onClick={() => navigate("/vehicles")}
               className="h-10 px-4 rounded-lg border border-[#E0E0E0] text-[#37352F] bg-white text-sm font-medium hover:bg-[#F7F6F3] hover:border-[#37352F] hover:shadow-md transition-all duration-200 active:bg-[#E0E0E0]"
             >
               ← Back to Vehicles
             </button>
 
             <button
-              onClick={() => navigate(`/storage/${storageId}/edit`)}
+              onClick={() => navigate(`/vehicles/${vehicleId}/edit`)}
               className="h-10 px-4 inline-flex items-center rounded-lg text-white text-sm font-medium hover:bg-[#F7F7F5] hover:text-[#37352F] transition-colors"
             >
               Edit
@@ -144,42 +151,42 @@ export default function StorageDetailPage() {
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Make
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.make}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.make}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Model
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.model}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.model}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Year
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.year}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.year}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Type
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.type}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.type}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Plate
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.plate}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.plate}</p>
               </div>
 
               <div>
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Color
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.color || "-"}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.color || "-"}</p>
               </div>
             </div>
           </div>
@@ -195,7 +202,7 @@ export default function StorageDetailPage() {
                   Mileage (km)
                 </label>
                 <p className="text-sm text-[#37352F]">
-                  {storage.mileage || "-"}
+                  {vehicle.mileage || "-"}
                 </p>
               </div>
 
@@ -204,7 +211,7 @@ export default function StorageDetailPage() {
                   VIN
                 </label>
                 <p className="text-sm text-[#37352F] break-all">
-                  {storage.vin || "-"}
+                  {vehicle.vin || "-"}
                 </p>
               </div>
 
@@ -220,7 +227,7 @@ export default function StorageDetailPage() {
                   Created By
                 </label>
                 <p className="text-sm text-[#37352F]">
-                  {storage.createdByEmployeeAcc || "-"}
+                  {vehicle.createdByEmployeeAcc || "-"}
                 </p>
               </div>
 
@@ -228,7 +235,7 @@ export default function StorageDetailPage() {
                 <label className="text-xs font-medium text-[#787774] uppercase">
                   Notes
                 </label>
-                <p className="text-sm text-[#37352F]">{storage.notes || "-"}</p>
+                <p className="text-sm text-[#37352F]">{vehicle.notes || "-"}</p>
               </div>
 
               <div>
@@ -273,7 +280,7 @@ export default function StorageDetailPage() {
               No projects related to this vehicle.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E0E0E0]">
+            <div className="hidden sm:block overflow-x-auto rounded-lg border border-[#E0E0E0]">
               <table className="min-w-full">
                 <thead>
                   <tr className="bg-[#F7F6F3]">
@@ -329,6 +336,40 @@ export default function StorageDetailPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {relatedProjects.length > 0 && (
+            <div className="sm:hidden divide-y divide-[#E0E0E0] rounded-lg border border-[#E0E0E0] overflow-hidden">
+              {relatedProjects.map((project) => {
+                const { label, style } = statusStyle(project.status);
+                return (
+                  <div
+                    key={project.id}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                    className="flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-blue-50 active:bg-blue-100"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium text-[#37352F] truncate">
+                          {project.title || "-"}
+                        </span>
+                        <span
+                          className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${style}`}
+                        >
+                          {label || "-"}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-[#787774]">
+                        {project.createdAt
+                          ? new Date(project.createdAt.toDate()).toLocaleDateString()
+                          : "-"}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[#9B9A97]" />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
