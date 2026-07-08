@@ -161,18 +161,19 @@ export async function updateProjectTimerState(businnessId: string, projectId: st
 // CREATE
 // ══════════════════════════════════════════════════════════════════════════════
 
-// Generic function to create a new document
-async function createDocument(businessId: string, insertionPath: string | string[], values: Record<string, unknown>): Promise<boolean | undefined> {
-  return withErrorHandling (
+// Generic function to create a new document. Returns the new document's id on
+// success (truthy, so callers can still branch on it), or null on failure.
+async function createDocument(businessId: string, insertionPath: string | string[], values: Record<string, unknown>): Promise<string | null> {
+  return withErrorHandling(
     async () => {
       const path = Array.isArray(insertionPath) ? insertionPath : [insertionPath];
       const docRef = collection(db, "businesses", businessId, ...path);
-      await addDoc(docRef, {
+      const created = await addDoc(docRef, {
         ...values
       });
-      return true;
+      return created.id;
     },
-    undefined,
+    null,
     "Error creating document"
   );
 }

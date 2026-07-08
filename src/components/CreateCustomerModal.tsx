@@ -131,7 +131,7 @@ export function CreateCustomerModal({ onClose, onCreated, businessId }: CreateCu
         employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId), "Name");
       }
 
-      const result = await createCustomer(businessId, {
+      const id = await createCustomer(businessId, {
         name: form.name.trim(),
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
@@ -142,7 +142,6 @@ export function CreateCustomerModal({ onClose, onCreated, businessId }: CreateCu
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      const id = (result as unknown as { id?: string })?.id;
 
       onCreated({
         id,

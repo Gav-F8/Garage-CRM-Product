@@ -163,9 +163,9 @@ export default function ProjectPage() {
         lastNoteText: null,
       };
 
-      const jobRef = await createProject(businessId, jobData);
+      const jobId = await createProject(businessId, jobData);
 
-      return (jobRef as unknown as { id?: string })?.id;
+      return jobId;
     } catch (creationError: any) {
       console.error("Error creating project:", creationError);
       setSubmitError(
