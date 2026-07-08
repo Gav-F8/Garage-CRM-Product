@@ -113,7 +113,7 @@ export function CreateCustomerModal({ onClose, onCreated, businessId }) {
       let employeeName = null;
 
       if (currentUserId) {
-        employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId), "name");
+        employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId), "Name");
       }
 
       const { id } = await createCustomer(businessId, {

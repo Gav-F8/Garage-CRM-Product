@@ -51,6 +51,7 @@ export const notionTheme = {
 // Composite classes for common elements
 export const notionClasses = {
   pageContainer: `${notionTheme.layout.page} ${notionTheme.colors.bg} ${notionTheme.colors.text.primary}`,
+  container: notionTheme.layout.container,
   cardContainer: `${notionTheme.layout.contentWidth} space-y-8 ${notionTheme.animation.fadeIn}`,
   card: `${notionTheme.layout.card} ${notionTheme.colors.border}`,
   input: `w-full pl-9 h-10 ${notionTheme.colors.input.bg} ${notionTheme.colors.input.border} ${notionTheme.colors.text.primary} placeholder:${notionTheme.colors.text.placeholder} focus-visible:ring-1 ${notionTheme.colors.input.focus} focus-visible:border-[#37352F] rounded-lg transition-all`,

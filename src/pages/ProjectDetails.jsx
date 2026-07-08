@@ -329,7 +329,7 @@ export default function ProjectDetailsPage() {
       }
 
       else {
-        setError(err.message || "Failed to add note.");
+        setError("Failed to add note.");
       }
     } 
     finally {
@@ -419,7 +419,7 @@ export default function ProjectDetailsPage() {
       }
   
       else {
-        setError(err.message || "Failed to submit stopwatch time log.");
+        setError("Failed to submit stopwatch time log.");
       }
     }
     finally {
@@ -493,8 +493,7 @@ export default function ProjectDetailsPage() {
     }
 
     else {
-      console.error(err);
-      setError(err.message || "Failed to update time log.");
+      setError("Failed to update time log.");
     }
   }
 
@@ -672,18 +671,15 @@ export default function ProjectDetailsPage() {
 
                 <div className="space-y-4 max-h-[420px] overflow-y-auto pr-2">
                   {notes.length ? (
-                    notes.map((note) => (
-                      <div
-                        key={project.description}
-                        className="rounded-lg border border-[#E0E0E0] bg-[#FAFAF9] p-4"
-                      >
-                        <p className="text-sm text-[#37352F] mb-3 break-words whitespace-pre-wrap">
-                          {project.description || "No description available"}
-                        </p>
-                        <div className="flex flex-col gap-1 text-xs text-[#787774]">
-                        </div>
+                    <div
+                      className="rounded-lg border border-[#E0E0E0] bg-[#FAFAF9] p-4"
+                    >
+                      <p className="text-sm text-[#37352F] mb-3 break-words whitespace-pre-wrap">
+                        {project.description || "No description available"}
+                      </p>
+                      <div className="flex flex-col gap-1 text-xs text-[#787774]">
                       </div>
-                    ))
+                    </div>
                   ) : (
                     <p className="text-sm text-[#787774]">
                       No description available for this job.

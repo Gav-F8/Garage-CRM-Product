@@ -181,7 +181,7 @@ export function CreateVehicleModal({ businessId, customers, onClose, onCreated }
       let employeeName = null;
 
       if (currentUserId) {
-        employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId));
+        employeeName = extractName(await fetchEmployeeDetail(businessId, currentUserId), "Name");
       }
 
       const cleanData = {

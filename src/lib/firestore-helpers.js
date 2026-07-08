@@ -128,9 +128,9 @@ export async function fetchBusinessId(userUid) {
 export async function fetchProjectTimerState(businessId, projectId) {
   return withErrorHandling(
     async () => {
-      const started = convertTimestampToMillis(fetchProjectTimerStartedAt(businessId, projectId));
-      const paused = convertTimestampToMillis(fetchProjectTimerPausedAt(businessId, projectId));
-      const active = fetchProjectIsActive(projectId, businessId);
+      const started = convertTimestampToMillis(await fetchProjectTimerStartedAt(businessId, projectId));
+      const paused = convertTimestampToMillis(await fetchProjectTimerPausedAt(businessId, projectId));
+      const active = await fetchProjectIsActive(businessId, projectId);
       return { timerStartedAt: started, timerPausedAt: paused, isActive: active};
     },
     null,

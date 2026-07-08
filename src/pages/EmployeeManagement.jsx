@@ -244,10 +244,10 @@ function EmployeeDetailModal({ emp, onClose }) {
 
 // ── Edit Employee Modal ────────────────────────────────────────────────────────
 function EditEmployeeModal({ emp, onSave, onClose, saving }) {
-  if (!emp) return null;
+  const [status, setStatus] = useState(emp?.status || "active");
+  const [role, setRole] = useState(emp?.role || "mechanic");
 
-  const [status, setStatus] = useState(emp.status || "active");
-  const [role, setRole] = useState(emp.role || "mechanic");
+  if (!emp) return null;
 
   const joinDate = emp.createdAt
     ? new Date(emp.createdAt).toLocaleDateString(undefined, {
